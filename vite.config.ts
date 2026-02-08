@@ -8,8 +8,8 @@ const isGitHubPages = process.env.DEPLOY_ENV === 'GH_PAGES';
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     return {
-      // Base URL for GitHub Pages deployment (change 'grosver-techprocess-pro' to your repo name)
-      base: isGitHubPages ? '/grosver-techprocess-pro/' : '/',
+      // Base URL for GitHub Pages deployment (change to your actual repo name)
+      base: isGitHubPages ? '/TECHNICAL_PROCESS/' : '/',
       server: {
         port: 3000,
         host: '0.0.0.0',
