@@ -29,47 +29,50 @@ const formatOp = (op: Operation, depth: number): string => {
 
   const detailsIndent = opIndent + '    ';
 
+  // Вывод кода соответствия если есть
+  if (op.correspondenceCode) {
+    result += `${detailsIndent}Код соответствия: ${op.correspondenceCode}\n`;
+  }
+
   if (op.type === 'preparation') {
     let blankSpec = '';
-    const size = op.blankSize || '';
-    const length = op.blankLength || '';
-    const thick = op.blankThickness || '';
-    const width = op.blankWidth || '';
-    const wall = op.blankWall || '';
+    const size = (op.blankSize || '').trim();
+    const length = (op.blankLength || '').trim();
+    const thick = (op.blankThickness || '').trim();
+    const width = (op.blankWidth || '').trim();
+    const wall = (op.blankWall || '').trim();
 
     if (op.blankType === 'circle') {
-      if (size && length) blankSpec = `ф${size} х ${length}`;
+      if (size && length) blankSpec = `ф${size}x${length}`;
       else if (size) blankSpec = `ф${size}`;
-      else if (length) blankSpec = `${length}`;
+      else if (length) blankSpec = `L=${length}`;
     } else if (op.blankType === 'plate') {
       const parts = [];
       if (thick) parts.push(`#${thick}`);
       if (width) parts.push(width);
       if (length) parts.push(length);
-      blankSpec = parts.join(' x ');
+      blankSpec = parts.join('x');
     } else if (op.blankType === 'hex') {
-      if (size && length) blankSpec = `S${size} x ${length}`;
+      if (size && length) blankSpec = `S${size}x${length}`;
       else if (size) blankSpec = `S${size}`;
-      else if (length) blankSpec = `${length}`;
+      else if (length) blankSpec = `L=${length}`;
     } else if (op.blankType === 'pipe') {
       const parts = [];
       if (size) parts.push(`ф${size}`);
-      if (wall) parts.push(`х ${wall}`);
-      if (length) parts.push(`- ${length}`);
-      blankSpec = parts.join(' ');
+      if (wall) parts.push(`x${wall}`);
+      if (length) parts.push(`L=${length}`);
+      blankSpec = parts.join('');
     }
     
-    // Formatting line with dynamic content (only showing what exists)
-    if (blankSpec || op.pcsPerBlank || op.setupPcs || op.material) {
-        let line = detailsIndent;
-        if (blankSpec) line += `${blankSpec} мм `;
-        if (op.pcsPerBlank) line += `/ ${op.pcsPerBlank} дет. `;
-        if (op.setupPcs) line += `(${op.setupPcs}н) `;
-        if (op.material) line += `, ${op.material}`;
-        
-        if (line.trim() !== detailsIndent.trim()) {
-           result += line.trimEnd() + '\n';
-        }
+    // Formatting line with dynamic content
+    let lineParts: string[] = [];
+    if (blankSpec) lineParts.push(`${blankSpec} мм`);
+    if (op.pcsPerBlank) lineParts.push(`${op.pcsPerBlank} дет/заг`);
+    if (op.setupPcs) lineParts.push(`(+${op.setupPcs}н)`);
+    if (op.material) lineParts.push(op.material);
+
+    if (lineParts.length > 0) {
+        result += `${detailsIndent}${lineParts.join(' / ')}\n`;
     }
   }
 
@@ -103,7 +106,7 @@ const formatOp = (op: Operation, depth: number): string => {
 
 const formatPart = (part: PartCard, depth: number = 0): string => {
   const indent = '   '.repeat(depth);
-  const partHeader = `${part.name || 'Деталь'} ${part.number || ''}`.trim();
+  const partHeader = `${part.name || 'БЕЗ НАЗВАНИЯ'} ${part.number || ''}`.trim();
   let result = `${indent}${partHeader}:\n\n`;
   
   part.operations.forEach(op => {
@@ -126,7 +129,7 @@ export const exportToTxt = (rootPart: PartCard) => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `TechProcess_${rootPart.number || 'unknown'}.txt`;
+  link.download = `TechProcess_${rootPart.number || 'NoNumber'}.txt`;
   link.click();
   URL.revokeObjectURL(url);
 };

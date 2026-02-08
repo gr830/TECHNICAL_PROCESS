@@ -41,14 +41,15 @@ export interface Operation {
   comment?: string;
   tooling?: Tooling[];
   specialTools?: Tool[];
+  correspondenceCode?: string; // Код соответствия (маркер)
   // Для заготовительной
   material?: string;
   blankType?: BlankType;
-  blankSize?: string; // Diameter or Hex size
-  blankWidth?: string; // For plate
-  blankThickness?: string; // For plate
+  blankSize?: string;
+  blankWidth?: string;
+  blankThickness?: string;
   blankLength?: string;
-  blankWall?: string; // For pipe
+  blankWall?: string;
   pcsPerBlank?: string;
   setupPcs?: string;
   // Для слесарной
@@ -61,6 +62,36 @@ export interface PartCard {
   name: string;
   operations: Operation[];
   subParts: PartCard[];
+}
+
+export interface MillingMachineData {
+  "Станок": string;
+  "Ост (A)": string;
+  "Инстр. (T)": string;
+  "Точность (GA)": string;
+  "Круг. инт. (CI)": string;
+  "Оснастка": string;
+  "Renishaw (R)": string;
+  "Отриц. ось (NA)": string;
+  "Шпиндель (S)": string;
+  "СОЖ (C)": string;
+  "Пов. гол. (AH)": string;
+  "Расточка (BB)": string;
+  "Габариты (AxBxC / DxL)": string;
+  "Сложность (G)": string;
+}
+
+export interface TurningMachineData {
+  "Станок": string;
+  "Приводной инстр. (DT)": string;
+  "Кол-во инстр. (T)": string;
+  "Точность по X (GAX)": string;
+  "Точность по Z (GAZ)": string;
+  "Группа оснастки": string;
+  "Обороты шпинделя (S)": string;
+  "Задняя бабка (TT)": string;
+  "Габариты (DxL)": string;
+  "Группа сложн. (G)": string;
 }
 
 export interface Message {

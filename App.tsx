@@ -2,8 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { PartCard, Operation, OpType, Tooling, Tool, Machine, BlankType } from './types';
 import { exportToTxt } from './services/exportService';
+import MachineStatusModal from './components/MachineStatusModal';
 
-const STORAGE_KEY = 'grosver_tech_process_data';
+const STORAGE_KEY = 'grosver_tech_process_v3';
 
 const getInitialRoot = (): PartCard => ({
   id: 'root',
@@ -14,44 +15,39 @@ const getInitialRoot = (): PartCard => ({
 });
 
 const App: React.FC = () => {
-  const [rootPart, setRootPart] = useState<PartCard>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        return parsed.rootPart || getInitialRoot();
-      } catch (e) {
-        return getInitialRoot();
-      }
-    }
-    return getInitialRoot();
-  });
+  const [rootPart, setRootPart] = useState<PartCard>(getInitialRoot());
+  const [partCounter, setPartCounter] = useState<number>(1);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [isMachineModalOpen, setIsMachineModalOpen] = useState(false);
 
-  const [partCounter, setPartCounter] = useState<number>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        return parsed.partCounter || 1;
-      } catch (e) {
-        return 1;
-      }
-    }
-    return 1;
-  });
-
+  // Load state on mount
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ rootPart, partCounter }));
-  }, [rootPart, partCounter]);
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.rootPart) setRootPart(parsed.rootPart);
+        if (parsed.partCounter !== undefined) setPartCounter(parsed.partCounter);
+      } catch (e) {
+        console.error("Failed to load state", e);
+      }
+    }
+    setIsLoaded(true);
+  }, []);
+
+  // Persist state
+  useEffect(() => {
+    if (isLoaded) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ rootPart, partCounter }));
+    }
+  }, [rootPart, partCounter, isLoaded]);
 
   const handleClearAll = () => {
-    if (window.confirm('Вы уверены, что хотите полностью очистить проект? Все данные будут удалены безвозвратно.')) {
-      const fresh = getInitialRoot();
-      setRootPart(fresh);
-      setPartCounter(1);
+    if (window.confirm('Вы уверены, что хотите полностью очистить проект? Все данные и кэш будут удалены.')) {
       localStorage.removeItem(STORAGE_KEY);
-      // Force a re-render or reset state explicitly
-      window.location.reload(); 
+      setRootPart(getInitialRoot());
+      setPartCounter(1);
+      setTimeout(() => window.location.reload(), 100);
     }
   };
 
@@ -130,26 +126,35 @@ const App: React.FC = () => {
 
   const handleAddSubPart = (targetPartId: string) => {
     const indexStr = partCounter.toString().padStart(2, '0');
-    const baseTail = rootPart.number.substring(4);
+    const baseTail = rootPart.number ? rootPart.number.substring(4) : "0000000";
     const newNumber = `21${indexStr}${baseTail}`;
+    
     const newSub: PartCard = {
       id: Math.random().toString(36).substr(2, 9),
-      name: `${rootPart.name || 'Деталь'} (${2100 + partCounter} ПФ)`,
+      name: `${rootPart.name || 'Изделие'} (${2100 + partCounter} ПФ)`,
       number: newNumber,
       operations: [],
       subParts: []
     };
+    
     setPartCounter(prev => prev + 1);
-    if (rootPart.id === targetPartId) setRootPart(prev => ({ ...prev, subParts: [{ ...newSub, subParts: prev.subParts }] }));
-    else setRootPart(prev => ({ ...prev, subParts: wrapPartInTree(prev.subParts, targetPartId, newSub) }));
+    
+    if (rootPart.id === targetPartId) {
+      setRootPart(prev => ({ ...prev, subParts: [{ ...newSub, subParts: prev.subParts }] }));
+    } else {
+      setRootPart(prev => ({ ...prev, subParts: wrapPartInTree(prev.subParts, targetPartId, newSub) }));
+    }
   };
 
   const handleDeleteSubPart = (subPartId: string) => {
     const removeFromList = (list: PartCard[]): PartCard[] => {
       let newList: PartCard[] = [];
       for (const p of list) {
-        if (p.id === subPartId) newList.push(...p.subParts);
-        else newList.push({ ...p, subParts: removeFromList(p.subParts) });
+        if (p.id === subPartId) {
+          newList.push(...p.subParts);
+        } else {
+          newList.push({ ...p, subParts: removeFromList(p.subParts) });
+        }
       }
       return newList;
     };
@@ -167,19 +172,31 @@ const App: React.FC = () => {
             <span className="text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-widest">TechProcess Pro</span>
           </div>
         </div>
-        <div className="flex w-full md:w-auto gap-2">
+        
+        <div className="flex w-full md:w-auto gap-2 items-center">
+          <button 
+            onClick={() => setIsMachineModalOpen(true)}
+            className="px-4 py-2.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 rounded-md font-bold transition-all flex items-center gap-2 border border-indigo-500/30 shadow-md active:scale-95"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/></svg>
+            <span className="text-xs uppercase">Состояние станков</span>
+          </button>
+
+          <div className="h-8 w-[1px] bg-slate-800 mx-2 hidden md:block"></div>
+
           <button 
             type="button"
             onClick={handleClearAll}
-            className="flex-1 md:flex-initial px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-md font-bold transition-all flex items-center justify-center gap-2 active:scale-95 border border-slate-700 shadow-md"
+            className="px-4 py-2.5 bg-slate-800 hover:bg-red-900/40 text-slate-300 hover:text-red-400 rounded-md font-bold transition-all flex items-center justify-center gap-2 active:scale-95 border border-slate-700 shadow-md"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-            <span className="text-xs uppercase">Очистить проект</span>
+            <span className="text-xs uppercase hidden sm:inline">Очистить проект</span>
           </button>
+          
           <button 
             type="button"
             onClick={() => exportToTxt(rootPart)}
-            className="flex-1 md:flex-initial px-6 py-2.5 bg-orange-600 hover:bg-orange-500 text-white rounded-md font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-orange-900/20 active:scale-95 border border-orange-400/20"
+            className="px-6 py-2.5 bg-orange-600 hover:bg-orange-500 text-white rounded-md font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-orange-900/20 active:scale-95 border border-orange-400/20"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
             <span className="hidden sm:inline">ЭКСПОРТ TXT</span>
@@ -203,6 +220,10 @@ const App: React.FC = () => {
           />
         </div>
       </main>
+
+      {isMachineModalOpen && (
+        <MachineStatusModal onClose={() => setIsMachineModalOpen(false)} />
+      )}
 
       <footer className="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 px-8 py-2 text-[10px] text-slate-500 uppercase tracking-widest flex justify-between z-40 hidden md:flex">
         <span>Grosver Industrial Systems</span>
@@ -244,7 +265,7 @@ const PartEditor: React.FC<PartEditorProps> = ({ part, isRoot, onUpdatePart, onA
               <label className="text-[10px] uppercase font-bold text-slate-500 mb-2 block tracking-wider">Изделие / Полуфабрикат</label>
               <input 
                 value={part.name}
-                placeholder="Введите название детали..."
+                placeholder="Название детали..."
                 onChange={e => onUpdatePart(part.id, { name: e.target.value })}
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 focus:ring-1 focus:ring-orange-500 outline-none text-sm md:text-base font-semibold text-white transition-all shadow-inner"
               />
@@ -530,8 +551,20 @@ const OperationEditor: React.FC<{
 
         {isCnc && (
           <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+              <div className="md:col-span-12">
+                <label className="text-[10px] uppercase font-bold text-slate-600 block mb-3 tracking-[0.1em]">Код соответствия (Маркер)</label>
+                <input 
+                  value={op.correspondenceCode || ''}
+                  onChange={e => onUpdate({ correspondenceCode: e.target.value })}
+                  placeholder="Вставьте сгенерированный маркер..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 text-sm font-mono text-emerald-400 outline-none focus:ring-1 focus:ring-emerald-500 transition-all shadow-inner"
+                />
+              </div>
+            </div>
+
             <div>
-              <label className="text-[9px] uppercase font-bold text-slate-600 block mb-3 tracking-[0.1em]">Доступное оборудование (GROSVER)</label>
+              <label className="text-[10px] uppercase font-bold text-slate-600 block mb-3 tracking-[0.1em]">Доступное оборудование (GROSVER)</label>
               <div className="flex flex-wrap gap-2">
                 {getFilteredMachines().map(m => (
                   <button 
