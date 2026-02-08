@@ -17,6 +17,15 @@ export default defineConfig(({ mode }) => {
       build: {
         outDir: 'dist',
         sourcemap: false,
+        rollupOptions: {
+          output: {
+            manualChunks: {
+              // Разделяем большие зависимости на отдельные чанки для лучшей загрузки
+              vendor: ['react', 'react-dom'],
+              google: ['@google/genai'],
+            }
+          }
+        }
       },
       plugins: [react()],
       define: {
