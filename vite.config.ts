@@ -2,12 +2,21 @@ import path from 'path';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
+// Determine the base URL depending on the environment
+const isGitHubPages = process.env.DEPLOY_ENV === 'GH_PAGES';
+
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     return {
+      // Base URL for GitHub Pages deployment (change 'grosver-techprocess-pro' to your repo name)
+      base: isGitHubPages ? '/grosver-techprocess-pro/' : '/',
       server: {
         port: 3000,
         host: '0.0.0.0',
+      },
+      build: {
+        outDir: 'dist',
+        sourcemap: false,
       },
       plugins: [react()],
       define: {
