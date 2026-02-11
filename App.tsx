@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { PartCard, Operation, OpType, Tooling, Tool, Machine, BlankType } from './types';
+import { PartCard, Operation, OpType, Tooling, Tool, Machine, BlankType, NCStatus } from './types';
 import { exportToTxt } from './services/exportService';
 import MachineStatusModal from './components/MachineStatusModal';
 
@@ -80,7 +80,8 @@ const App: React.FC = () => {
       machines: [],
       tooling: [],
       specialTools: [],
-      blankType: 'circle'
+      blankType: 'circle',
+      ncStatus: 'none'
     };
 
     const updater = (p: PartCard) => {
@@ -535,10 +536,15 @@ const OperationEditor: React.FC<{
                   <label className="text-[9px] font-bold text-slate-500 mb-2 uppercase tracking-widest">Длина (L)</label>
                   <input placeholder="1000" value={op.blankLength || ''} onChange={e => onUpdate({ blankLength: e.target.value })} className="w-full bg-transparent border-b border-slate-800 text-sm py-2 outline-none focus:border-orange-500" />
                 </div>
-                <div className="flex gap-4 col-span-2">
+                {/* Расход перемещен сюда, сразу после Длины (L) */}
+                <div>
+                  <label className="text-[9px] font-bold text-slate-500 mb-2 uppercase tracking-widest">Расход</label>
+                  <input placeholder="0.2 прутка" value={op.materialConsumption || ''} onChange={e => onUpdate({ materialConsumption: e.target.value })} className="w-full bg-transparent border-b border-slate-800 text-sm py-2 outline-none focus:border-orange-500 font-medium text-indigo-400" />
+                </div>
+                <div className="grid grid-cols-2 gap-4 col-span-2">
                   <div className="flex-1">
                     <label className="text-[9px] font-bold text-slate-500 mb-2 uppercase tracking-widest">Дет./Заг.</label>
-                    <input placeholder="15" value={op.pcsPerBlank || ''} onChange={e => onUpdate({ pcsPerBlank: e.target.value })} className="w-full bg-transparent border-b border-slate-800 text-sm py-2 outline-none focus:border-orange-500" />
+                    <input placeholder="5" value={op.pcsPerBlank || ''} onChange={e => onUpdate({ pcsPerBlank: e.target.value })} className="w-full bg-transparent border-b border-slate-800 text-sm py-2 outline-none focus:border-orange-500" />
                   </div>
                   <div className="flex-1">
                     <label className="text-[9px] font-bold text-slate-500 mb-2 uppercase tracking-widest">Наладка (+н)</label>
@@ -551,8 +557,8 @@ const OperationEditor: React.FC<{
 
         {isCnc && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-              <div className="md:col-span-12">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
+              <div className="md:col-span-8">
                 <label className="text-[10px] uppercase font-bold text-slate-600 block mb-3 tracking-[0.1em]">Код соответствия (Маркер)</label>
                 <input 
                   value={op.correspondenceCode || ''}
@@ -561,6 +567,43 @@ const OperationEditor: React.FC<{
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 text-sm font-mono text-emerald-400 outline-none focus:ring-1 focus:ring-emerald-500 transition-all shadow-inner"
                 />
               </div>
+              <div className="md:col-span-4">
+                <label className="text-[10px] uppercase font-bold text-slate-600 block mb-3 tracking-[0.1em]">УП</label>
+                <select 
+                  value={op.ncStatus || 'none'} 
+                  onChange={e => onUpdate({ ncStatus: e.target.value as NCStatus })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 text-sm font-bold text-white outline-none focus:ring-1 focus:ring-orange-500 shadow-inner"
+                >
+                  <option value="none">Нет</option>
+                  <option value="yes">Да</option>
+                  <option value="revision">Пересмотр</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
+              {(op.ncStatus === 'yes' || op.ncStatus === 'revision') && (
+                <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                  <label className="text-[10px] uppercase font-bold text-slate-600 block mb-2 tracking-[0.1em]">Комментарий к УП</label>
+                  <input 
+                    value={op.ncComment || ''}
+                    onChange={e => onUpdate({ ncComment: e.target.value })}
+                    placeholder="Укажите детали по программе..."
+                    className="w-full bg-slate-950/50 border border-slate-800 rounded-lg px-4 py-3 text-sm text-slate-200 outline-none focus:border-orange-500"
+                  />
+                </div>
+              )}
+              {op.ncStatus === 'none' && (
+                <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                  <label className="text-[10px] uppercase font-bold text-slate-600 block mb-2 tracking-[0.1em]">Время написания УП (мин/час)</label>
+                  <input 
+                    value={op.ncTime || ''}
+                    onChange={e => onUpdate({ ncTime: e.target.value })}
+                    placeholder="Например: 2 часа"
+                    className="w-full bg-slate-950/50 border border-slate-800 rounded-lg px-4 py-3 text-sm text-orange-400 outline-none focus:border-orange-500"
+                  />
+                </div>
+              )}
             </div>
 
             <div>

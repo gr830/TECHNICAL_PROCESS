@@ -34,6 +34,19 @@ const formatOp = (op: Operation, depth: number): string => {
     result += `${detailsIndent}Код соответствия: ${op.correspondenceCode}\n`;
   }
 
+  // Информация по УП
+  if (op.type === 'turning_cnc' || op.type === 'milling_cnc') {
+    const statusLabel: Record<string, string> = {
+      none: 'Нет',
+      yes: 'Да',
+      revision: 'Пересмотр'
+    };
+    result += `${detailsIndent}УП: ${statusLabel[op.ncStatus || 'none']}`;
+    if (op.ncStatus === 'none' && op.ncTime) result += ` (Время: ${op.ncTime})`;
+    if ((op.ncStatus === 'yes' || op.ncStatus === 'revision') && op.ncComment) result += ` [${op.ncComment}]`;
+    result += '\n';
+  }
+
   if (op.type === 'preparation') {
     let blankSpec = '';
     const size = (op.blankSize || '').trim();
@@ -64,15 +77,22 @@ const formatOp = (op: Operation, depth: number): string => {
       blankSpec = parts.join('');
     }
     
-    // Formatting line with dynamic content
-    let lineParts: string[] = [];
-    if (blankSpec) lineParts.push(`${blankSpec} мм`);
-    if (op.pcsPerBlank) lineParts.push(`${op.pcsPerBlank} дет/заг`);
-    if (op.setupPcs) lineParts.push(`(+${op.setupPcs}н)`);
-    if (op.material) lineParts.push(op.material);
+    // Новая логика формирования строки заготовки
+    // Формат: Д16Т ф55x1000 мм / Расход: 10 / 5 дет/заг (+3н)
+    let firstPart = `${op.material || ''} ${blankSpec ? blankSpec + ' мм' : ''}`.trim();
+    let secondPart = op.materialConsumption ? `Расход: ${op.materialConsumption}` : '';
+    let thirdPart = '';
+    
+    if (op.pcsPerBlank) {
+      thirdPart = `${op.pcsPerBlank} дет/заг`;
+      if (op.setupPcs) thirdPart += ` (+${op.setupPcs}н)`;
+    } else if (op.setupPcs) {
+      thirdPart = `(+${op.setupPcs}н)`;
+    }
 
-    if (lineParts.length > 0) {
-        result += `${detailsIndent}${lineParts.join(' / ')}\n`;
+    const segments = [firstPart, secondPart, thirdPart].filter(Boolean);
+    if (segments.length > 0) {
+        result += `${detailsIndent}${segments.join(' / ')}\n`;
     }
   }
 
