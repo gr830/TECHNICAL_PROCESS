@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { PartCard, Operation, OpType, Tooling, Tool, Machine, BlankType, NCStatus } from './types';
+import { PartCard, Operation, OpType, Tooling, Tool, Machine, BlankType, NCStatus, MillingMachineData, TurningMachineData } from './types';
 import { exportToTxt, formatPart } from './services/exportService';
 import MachineStatusModal from './components/MachineStatusModal';
 
@@ -20,6 +20,11 @@ const App: React.FC = () => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isMachineModalOpen, setIsMachineModalOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  
+  // Глобальный кэш станков для синхронизации
+  const [millingMachines, setMillingMachines] = useState<MillingMachineData[]>([]);
+  const [turningMachines, setTurningMachines] = useState<TurningMachineData[]>([]);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load state on mount
@@ -90,11 +95,10 @@ const App: React.FC = () => {
       }
     };
     reader.readAsText(file);
-    // Reset input
     e.target.value = '';
   };
 
-  // Tree management functions (Add/Update/Delete)
+  // Tree management functions
   const wrapPartInTree = (parts: PartCard[], targetId: string, newPart: PartCard): PartCard[] => {
     return parts.map(p => {
       if (p.id === targetId) return { ...newPart, subParts: [{ ...p }] };
@@ -275,6 +279,8 @@ const App: React.FC = () => {
             <PartEditor 
               part={rootPart} 
               isRoot={true} 
+              millingMachines={millingMachines}
+              turningMachines={turningMachines}
               onUpdatePart={handleUpdatePart}
               onAddOp={handleAddOperation}
               onUpdateOp={handleUpdateOperation}
@@ -311,7 +317,13 @@ const App: React.FC = () => {
       </main>
 
       {isMachineModalOpen && (
-        <MachineStatusModal onClose={() => setIsMachineModalOpen(false)} />
+        <MachineStatusModal 
+          millingMachines={millingMachines}
+          turningMachines={turningMachines}
+          onUpdateMilling={setMillingMachines}
+          onUpdateTurning={setTurningMachines}
+          onClose={() => setIsMachineModalOpen(false)} 
+        />
       )}
 
       <footer className="fixed bottom-0 left-0 right-0 bg-slate-900/80 backdrop-blur-md border-t border-slate-800 px-8 py-2 text-[9px] text-slate-500 uppercase tracking-widest flex justify-between z-40 hidden md:flex items-center">
@@ -320,7 +332,7 @@ const App: React.FC = () => {
           <button onClick={handleClearAll} className="hover:text-red-400 transition-colors font-bold">Очистить кэш</button>
           <span className="flex items-center gap-1.5">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
-            Ready for Sync
+            Sync Enabled
           </span>
           <span>© 2025 v3.1.0</span>
         </div>
@@ -332,6 +344,8 @@ const App: React.FC = () => {
 interface PartEditorProps {
   part: PartCard;
   isRoot: boolean;
+  millingMachines: MillingMachineData[];
+  turningMachines: TurningMachineData[];
   onUpdatePart: (id: string, updates: Partial<PartCard>) => void;
   onAddOp: (partId: string, afterOpId?: string, beforeOpId?: string) => void;
   onUpdateOp: (partId: string, opId: string, updates: Partial<Operation>) => void;
@@ -341,7 +355,7 @@ interface PartEditorProps {
   onDeleteSub: (id: string) => void;
 }
 
-const PartEditor: React.FC<PartEditorProps> = ({ part, isRoot, onUpdatePart, onAddOp, onUpdateOp, onDeleteOp, onMoveOp, onAddSub, onDeleteSub }) => {
+const PartEditor: React.FC<PartEditorProps> = ({ part, isRoot, millingMachines, turningMachines, onUpdatePart, onAddOp, onUpdateOp, onDeleteOp, onMoveOp, onAddSub, onDeleteSub }) => {
   return (
     <div className="flex flex-col gap-0 w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className={`p-4 md:p-8 rounded-xl md:rounded-3xl border transition-all mb-6 ${isRoot ? 'bg-slate-900 border-slate-700 shadow-2xl ring-1 ring-slate-800' : 'bg-slate-900/60 border-slate-800 ml-4 md:ml-12 shadow-xl backdrop-blur-md relative'}`}>
@@ -407,6 +421,8 @@ const PartEditor: React.FC<PartEditorProps> = ({ part, isRoot, onUpdatePart, onA
 
                 <OperationEditor 
                   op={op} 
+                  millingMachines={millingMachines}
+                  turningMachines={turningMachines}
                   canMoveUp={idx > 0}
                   canMoveDown={idx < part.operations.length - 1}
                   onMove={(dir) => onMoveOp(part.id, op.id, dir)}
@@ -441,6 +457,8 @@ const PartEditor: React.FC<PartEditorProps> = ({ part, isRoot, onUpdatePart, onA
             key={sub.id}
             part={sub}
             isRoot={false}
+            millingMachines={millingMachines}
+            turningMachines={turningMachines}
             onUpdatePart={onUpdatePart}
             onAddOp={onAddOp}
             onUpdateOp={onUpdateOp}
@@ -457,12 +475,16 @@ const PartEditor: React.FC<PartEditorProps> = ({ part, isRoot, onUpdatePart, onA
 
 const OperationEditor: React.FC<{ 
   op: Operation, 
+  millingMachines: MillingMachineData[],
+  turningMachines: TurningMachineData[],
   canMoveUp: boolean, 
   canMoveDown: boolean, 
   onMove: (dir: 'up' | 'down') => void,
   onUpdate: (u: Partial<Operation>) => void, 
   onDelete: () => void 
-}> = ({ op, canMoveUp, canMoveDown, onMove, onUpdate, onDelete }) => {
+}> = ({ op, millingMachines, turningMachines, canMoveUp, canMoveDown, onMove, onUpdate, onDelete }) => {
+  const [syncError, setSyncError] = useState(false);
+
   const opTypes: { value: OpType; label: string }[] = [
     { value: 'turning_cnc', label: 'Токарная с ЧПУ' },
     { value: 'milling_cnc', label: 'Фрезерная с ЧПУ' },
@@ -479,20 +501,180 @@ const OperationEditor: React.FC<{
   ];
 
   const benchworkTypes = ['Пескоструйная', 'Зачистить заусенцы', 'Читать инструкцию', 'Другое'];
+  const isCnc = op.type === 'turning_cnc' || op.type === 'milling_cnc';
 
-  const millingMachines = ['Eco_S', 'Eco_H', 'Evo_M', 'Evo_H', 'Chiron_1', 'Chiron_2', 'Grosver_V856', 'Hedelius', 'DMU 40MB', 'Mitsui Seiki'];
-  const turningMachines = ['weiler', 'Twin 42', 'Hwacheon', 'Nakamura', 'Romi 240', 'Romi 280'];
+  const millingMachineNames = ['Eco_S', 'Eco_H', 'Evo_M', 'Evo_H', 'Chiron_1', 'Chiron_2', 'Grosver_V856', 'Hedelius', 'DMU 40MB', 'Mitsui Seiki'];
+  const turningMachineNames = ['weiler', 'Twin 42', 'Hwacheon', 'Nakamura', 'Romi 240', 'Romi 280'];
 
-  const getFilteredMachines = () => {
-    if (op.type === 'milling_cnc') return millingMachines;
-    if (op.type === 'turning_cnc') return turningMachines;
-    return [...millingMachines, ...turningMachines];
+  const fitsDimensions = (machineDimStr: string | undefined, partDims: number[]) => {
+    if (!machineDimStr || partDims.every(d => !d)) return true;
+    const mDims = machineDimStr.toLowerCase().split(/[x\s]/).map(s => parseFloat(s.replace(/[^\d.]/g, ''))).filter(n => !isNaN(n));
+    const cleanPartDims = partDims.filter(d => d > 0);
+    if (mDims.length < cleanPartDims.length) return false;
+    const sortedPart = cleanPartDims.sort((a, b) => a - b);
+    const sortedMachine = mDims.sort((a, b) => a - b);
+    return sortedPart.every((val, i) => val <= (sortedMachine[i] || 0));
+  };
+
+  const checkMachine = (m: any, requirements: any, isMilling: boolean) => {
+      const f = requirements;
+      if (isMilling) {
+        const data = m as MillingMachineData;
+        if (f.axes && data["Ост (A)"] !== f.axes) return false;
+        const mT = parseInt(data["Инстр. (T)"]?.toString().replace(/\D/g, '') || '0');
+        if (f.tools && mT < parseInt(f.tools)) return false;
+        const mGA = parseInt(data["Точность (GA)"]?.toString().replace(/\D/g, '') || '100');
+        if (f.ga && mGA > parseInt(f.ga)) return false;
+        const mCIVal = data["Круг. инт. (CI)"]?.toString() || "";
+        const mCI = mCIVal.includes('-') ? 999 : parseInt(mCIVal.replace(/\D/g, '') || '100');
+        if (f.ci && mCI > parseInt(f.ci)) return false;
+        const mTooling = (data["Оснастка"] || "").toString().toLowerCase();
+        if (f.tooling && !mTooling.includes(f.tooling.toLowerCase())) return false;
+        const checkB = (mVal: string | undefined, fVal: 'plus' | 'minus' | 'any', plusKey: string) => 
+          fVal === 'any' ? true : (fVal === 'plus' ? mVal === plusKey : mVal !== plusKey);
+        if (!checkB(data["Renishaw (R)"], f.renishaw, 'R+')) return false;
+        if (!checkB(data["Отриц. ось (NA)"], f.negAxis, 'NA+')) return false;
+        if (!checkB(data["СОЖ (C)"], f.coolant, 'C+')) return false;
+        if (!checkB(data["Пов. гол. (AH)"], f.angledHead, 'AH+')) return false;
+        if (!checkB(data["Расточка (BB)"], f.boring, 'BB+')) return false;
+        const mS = parseInt(data["Шпиндель (S)"]?.toString().replace(/\D/g, '') || '0');
+        if (f.spindle && mS < parseInt(f.spindle)) return false;
+        const mG = parseInt(data["Сложность (G)"]?.toString().replace(/\D/g, '') || '0');
+        if (f.complexity && mG < parseInt(f.complexity)) return false;
+        const pDims = f.dimMode === 'box' ? [Number(f.dimA), Number(f.dimB), Number(f.dimC)] : [Number(f.dimD), Number(f.dimL)];
+        if (!fitsDimensions(data["Габариты (AxBxC / DxL)"], pDims)) return false;
+        return true;
+      } else {
+        const data = m as TurningMachineData;
+        const checkB = (mVal: string | undefined, fVal: 'plus' | 'minus' | 'any', plusKey: string) => 
+          fVal === 'any' ? true : (fVal === 'plus' ? mVal === plusKey : mVal !== plusKey);
+        if (!checkB(data["Приводной инстр. (DT)"], f.drivenTools, 'DT+')) return false;
+        if (!checkB(data["Задняя бабка (TT)"], f.tailstock, 'TT+')) return false;
+        const mT = parseInt(data["Кол-во инстр. (T)"]?.toString().replace(/\D/g, '') || '0');
+        if (f.tools && mT < parseInt(f.tools)) return false;
+        const mGAX = parseInt(data["Точность по X (GAX)"]?.toString().replace(/\D/g, '') || '100');
+        if (f.gax && mGAX > parseInt(f.gax)) return false;
+        const mGAZ = parseInt(data["Точность по Z (GAZ)"]?.toString().replace(/\D/g, '') || '100');
+        if (f.gaz && mGAZ > parseInt(f.gaz)) return false;
+        const mS = parseInt(data["Обороты шпинделя (S)"]?.toString().replace(/\D/g, '') || '0');
+        if (f.spindle && mS < parseInt(f.spindle)) return false;
+        const mG = parseInt(data["Группа сложн. (G)"]?.toString().replace(/\D/g, '') || '0');
+        if (f.complexity && mG < parseInt(f.complexity)) return false;
+        const mTooling = (data["Группа оснастки"] || "").toString().toLowerCase();
+        if (f.tooling && !mTooling.includes(f.tooling.toLowerCase())) return false;
+        if (!fitsDimensions(data["Габариты (DxL)"], [Number(f.dimD), Number(f.dimL)])) return false;
+        return true;
+      }
+  };
+
+  const handleSyncMachines = () => {
+    const code = (op.correspondenceCode || '').trim().toUpperCase();
+    if (!code) {
+      setSyncError(false);
+      onUpdate({ machines: [] });
+      return;
+    }
+
+    const isMilling = op.type === 'milling_cnc';
+    const machinesPool = isMilling ? millingMachines : turningMachines;
+
+    if (machinesPool.length === 0) {
+      alert('Сначала загрузите данные в Базе Станков!');
+      return;
+    }
+
+    // Парсинг кода в фильтры
+    const fragments = code.split(/[_ ]+/).filter(Boolean);
+    if (fragments.length === 0) {
+      onUpdate({ machines: [] });
+      setSyncError(true);
+      return;
+    }
+
+    const parsedFilters: any = isMilling ? {
+      axes: '', tools: '', ga: '', ci: '', tooling: '',
+      renishaw: 'any', negAxis: 'any', spindle: '', coolant: 'any',
+      angledHead: 'any', boring: 'any', dimA: '', dimB: '', dimC: '',
+      dimD: '', dimL: '', complexity: '', dimMode: 'box'
+    } : {
+      drivenTools: 'any', tools: '', gax: '', gaz: '', tooling: '',
+      spindle: '', tailstock: 'any', dimD: '', dimL: '', complexity: ''
+    };
+
+    fragments.forEach(frag => {
+      const f = frag;
+      if (isMilling) {
+        if (['A3', 'A31', 'A32', 'A4', 'A41', 'A5'].includes(f)) parsedFilters.axes = f;
+        else if (f.startsWith('T') && /^\d+$/.test(f.slice(1))) parsedFilters.tools = f.slice(1);
+        else if (f.startsWith('GA') && !f.startsWith('GAX') && !f.startsWith('GAZ') && /^\d+$/.test(f.slice(2))) parsedFilters.ga = f.slice(2);
+        else if (f.startsWith('CI') && /^\d+$/.test(f.slice(2))) parsedFilters.ci = f.slice(2);
+        else if (f.startsWith('S') && /^\d+$/.test(f.slice(1))) parsedFilters.spindle = f.slice(1);
+        else if (f.startsWith('G') && /^\d+$/.test(f.slice(1))) parsedFilters.complexity = f.slice(1);
+        else if (f === 'R+') parsedFilters.renishaw = 'plus';
+        else if (f === 'R-') parsedFilters.renishaw = 'minus';
+        else if (f === 'NA+') parsedFilters.negAxis = 'plus';
+        else if (f === 'NA-') parsedFilters.negAxis = 'minus';
+        else if (f === 'C+') parsedFilters.coolant = 'plus';
+        else if (f === 'C-') parsedFilters.coolant = 'minus';
+        else if (f === 'AH+') parsedFilters.angledHead = 'plus';
+        else if (f === 'AH-') parsedFilters.angledHead = 'minus';
+        else if (f === 'BB+') parsedFilters.boring = 'plus';
+        else if (f === 'BB-') parsedFilters.boring = 'minus';
+        const boxMatch = f.match(/A(\d+)XB(\d+)XC(\d+)/);
+        if (boxMatch) {
+          parsedFilters.dimMode = 'box';
+          parsedFilters.dimA = boxMatch[1];
+          parsedFilters.dimB = boxMatch[2];
+          parsedFilters.dimC = boxMatch[3];
+        }
+        const roundMatch = f.match(/D(\d+)XL(\d+)/);
+        if (roundMatch) {
+          parsedFilters.dimMode = 'round';
+          parsedFilters.dimD = roundMatch[1];
+          parsedFilters.dimL = roundMatch[2];
+        }
+        if (!/[0-9+-]/.test(f) && f.length > 2) parsedFilters.tooling = f;
+      } else {
+        if (f === 'DT+') parsedFilters.drivenTools = 'plus';
+        else if (f === 'DT-') parsedFilters.drivenTools = 'minus';
+        else if (f === 'TT+') parsedFilters.tailstock = 'plus';
+        else if (f === 'TT-') parsedFilters.tailstock = 'minus';
+        else if (f.startsWith('T') && /^\d+$/.test(f.slice(1))) parsedFilters.tools = f.slice(1);
+        else if (f.startsWith('GAX') && /^\d+$/.test(f.slice(3))) parsedFilters.gax = f.slice(3);
+        else if (f.startsWith('GAZ') && /^\d+$/.test(f.slice(3))) parsedFilters.gaz = f.slice(3);
+        else if (f.startsWith('S') && /^\d+$/.test(f.slice(1))) parsedFilters.spindle = f.slice(1);
+        else if (f.startsWith('G') && /^\d+$/.test(f.slice(1))) parsedFilters.complexity = f.slice(1);
+        const turnDim = f.match(/D(\d+)XL(\d+)/);
+        if (turnDim) {
+          parsedFilters.dimD = turnDim[1];
+          parsedFilters.dimL = turnDim[2];
+        }
+        if (!/[0-9+-]/.test(f) && f.length > 2) parsedFilters.tooling = f;
+      }
+    });
+
+    const matches = machinesPool.filter(m => {
+      const mName = (m["Станок"] || "").toString().toUpperCase();
+      if (code.includes(mName)) return true;
+      return checkMachine(m, parsedFilters, isMilling);
+    }).map(m => m["Станок"]);
+
+    if (matches.length > 0) {
+      onUpdate({ machines: matches });
+      setSyncError(false);
+    } else {
+      onUpdate({ machines: [] });
+      setSyncError(true);
+    }
+  };
+
+  const handleSelectAllMachines = () => {
+    const all = op.type === 'milling_cnc' ? millingMachineNames : turningMachineNames;
+    onUpdate({ machines: all });
   };
 
   const addTooling = () => onUpdate({ tooling: [...(op.tooling || []), { id: Math.random().toString(36).substr(2, 9), type: 'universal', name: '' }] });
   const addSpecialTool = () => onUpdate({ specialTools: [...(op.specialTools || []), { id: Math.random().toString(36).substr(2, 9), name: '', type: 'universal' }] });
-
-  const isCnc = op.type === 'turning_cnc' || op.type === 'milling_cnc';
 
   return (
     <div className="bg-slate-900 border border-slate-800 p-4 md:p-6 rounded-xl relative group hover:border-orange-500/30 transition-all shadow-inner border-l-4 border-l-slate-700 group-hover:border-l-orange-600">
@@ -525,7 +707,7 @@ const OperationEditor: React.FC<{
             <label className="text-[10px] uppercase font-bold text-slate-600 block mb-2">Вид операции</label>
             <select 
               value={op.type}
-              onChange={e => onUpdate({ type: e.target.value as OpType })}
+              onChange={e => onUpdate({ type: e.target.value as OpType, machines: [] })}
               className="w-full bg-slate-950 border border-slate-800 py-2 px-4 rounded-lg text-sm outline-none focus:border-orange-500 transition-colors"
             >
               {opTypes.map(t => <option key={t.value} value={t.value} className="bg-slate-900">{t.label}</option>)}
@@ -648,12 +830,27 @@ const OperationEditor: React.FC<{
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
               <div className="md:col-span-8">
                 <label className="text-[10px] uppercase font-bold text-slate-600 block mb-3 tracking-[0.1em]">Код соответствия (Маркер)</label>
-                <input 
-                  value={op.correspondenceCode || ''}
-                  onChange={e => onUpdate({ correspondenceCode: e.target.value })}
-                  placeholder="Вставьте сгенерированный маркер..."
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 text-sm font-mono text-emerald-400 outline-none focus:ring-1 focus:ring-emerald-500 transition-all shadow-inner"
-                />
+                <div className="relative">
+                  <input 
+                    value={op.correspondenceCode || ''}
+                    onChange={e => { onUpdate({ correspondenceCode: e.target.value }); setSyncError(false); }}
+                    placeholder="Укажите код соответствия..."
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-4 pr-12 py-3 text-sm font-mono text-emerald-400 outline-none focus:ring-1 focus:ring-emerald-500 transition-all shadow-inner"
+                  />
+                  <button 
+                    onClick={handleSyncMachines}
+                    title="Синхронизировать оборудование"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center bg-emerald-600/10 hover:bg-emerald-600/20 rounded-md text-emerald-500 transition-all active:scale-90 border border-emerald-500/20"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                  </button>
+                </div>
+                {syncError && (
+                  <p className="text-[10px] text-rose-500 font-bold mt-1.5 uppercase tracking-wider animate-in fade-in slide-in-from-top-1">Станок не найден по данному коду</p>
+                )}
+                {!op.correspondenceCode && !syncError && (
+                  <p className="text-[10px] text-slate-500 font-bold mt-1.5 uppercase tracking-wider italic">Введите код соответствия для синхронизации</p>
+                )}
               </div>
               <div className="md:col-span-4">
                 <label className="text-[10px] uppercase font-bold text-slate-600 block mb-3 tracking-[0.1em]">УП</label>
@@ -695,9 +892,19 @@ const OperationEditor: React.FC<{
             </div>
 
             <div>
-              <label className="text-[10px] uppercase font-bold text-slate-600 block mb-3 tracking-[0.1em]">Доступное оборудование (GROSVER)</label>
+              <div className="flex items-center justify-between mb-3">
+                <label className="text-[10px] uppercase font-bold text-slate-600 tracking-[0.1em]">Доступное оборудование (GROSVER)</label>
+                <button 
+                  onClick={handleSelectAllMachines}
+                  className="text-[9px] font-black uppercase text-orange-500 hover:text-orange-400 flex items-center gap-1.5 px-2 py-1 bg-orange-500/5 hover:bg-orange-500/10 rounded-md border border-orange-500/20 transition-all active:scale-95"
+                  title="Выбрать все доступные станки"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"/></svg>
+                  Выбрать все
+                </button>
+              </div>
               <div className="flex flex-wrap gap-2">
-                {getFilteredMachines().map(m => (
+                {(op.type === 'milling_cnc' ? millingMachineNames : turningMachineNames).map(m => (
                   <button 
                     key={m}
                     onClick={() => {

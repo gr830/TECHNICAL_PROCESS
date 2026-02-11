@@ -4,20 +4,20 @@ import { MillingMachineData, TurningMachineData } from '../types';
 
 interface MachineStatusModalProps {
   onClose: () => void;
+  millingMachines: MillingMachineData[];
+  turningMachines: TurningMachineData[];
+  onUpdateMilling: (data: MillingMachineData[]) => void;
+  onUpdateTurning: (data: TurningMachineData[]) => void;
 }
 
 const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbzmj-UlTWSCsllj1acqd-7NQgMnElC-5GOaJGbqoNnLPC5niKxPAU3zYDLAludYqdq8/exec';
 
 type TriState = 'plus' | 'minus' | 'any';
 
-const MachineStatusModal: React.FC<MachineStatusModalProps> = ({ onClose }) => {
+const MachineStatusModal: React.FC<MachineStatusModalProps> = ({ onClose, millingMachines, turningMachines, onUpdateMilling, onUpdateTurning }) => {
   const [activeTab, setActiveTab] = useState<'milling' | 'turning'>('milling');
   const [mode, setMode] = useState<'filter' | 'code'>('filter');
   const [loading, setLoading] = useState(false);
-  
-  // Раздельное хранение данных для кэширования в памяти
-  const [millingMachines, setMillingMachines] = useState<MillingMachineData[]>([]);
-  const [turningMachines, setTurningMachines] = useState<TurningMachineData[]>([]);
   
   const [searchCode, setSearchCode] = useState('');
   const [dimMode, setDimMode] = useState<'box' | 'round'>('box');
@@ -48,9 +48,9 @@ const MachineStatusModal: React.FC<MachineStatusModalProps> = ({ onClose }) => {
       if (!response.ok) throw new Error('API Error');
       const data = await response.json();
       if (isMilling) {
-        setMillingMachines(data);
+        onUpdateMilling(data);
       } else {
-        setTurningMachines(data);
+        onUpdateTurning(data);
       }
     } catch (error) {
       console.error(error);
@@ -103,7 +103,7 @@ const MachineStatusModal: React.FC<MachineStatusModalProps> = ({ onClose }) => {
     return sortedPart.every((val, i) => val <= (sortedMachine[i] || 0));
   };
 
-  const currentMachines = isMilling ? millingMachines : turningMachines;
+  const currentPool = isMilling ? millingMachines : turningMachines;
 
   const filteredMachines = useMemo(() => {
     const checkMachine = (m: any, requirements: any) => {
@@ -188,16 +188,16 @@ const MachineStatusModal: React.FC<MachineStatusModalProps> = ({ onClose }) => {
           else if (f.startsWith('CI') && /^\d+$/.test(f.slice(2))) parsedFilters.ci = f.slice(2);
           else if (f.startsWith('S') && /^\d+$/.test(f.slice(1))) parsedFilters.spindle = f.slice(1);
           else if (f.startsWith('G') && /^\d+$/.test(f.slice(1))) parsedFilters.complexity = f.slice(1);
-          else if (f.startsWith('R+')) parsedFilters.renishaw = 'plus';
-          else if (f.startsWith('R-')) parsedFilters.renishaw = 'minus';
-          else if (f.startsWith('NA+')) parsedFilters.negAxis = 'plus';
-          else if (f.startsWith('NA-')) parsedFilters.negAxis = 'minus';
-          else if (f.startsWith('C+')) parsedFilters.coolant = 'plus';
-          else if (f.startsWith('C-')) parsedFilters.coolant = 'minus';
-          else if (f.startsWith('AH+')) parsedFilters.angledHead = 'plus';
-          else if (f.startsWith('AH-')) parsedFilters.angledHead = 'minus';
-          else if (f.startsWith('BB+')) parsedFilters.boring = 'plus';
-          else if (f.startsWith('BB-')) parsedFilters.boring = 'minus';
+          else if (f === 'R+') parsedFilters.renishaw = 'plus';
+          else if (f === 'R-') parsedFilters.renishaw = 'minus';
+          else if (f === 'NA+') parsedFilters.negAxis = 'plus';
+          else if (f === 'NA-') parsedFilters.negAxis = 'minus';
+          else if (f === 'C+') parsedFilters.coolant = 'plus';
+          else if (f === 'C-') parsedFilters.coolant = 'minus';
+          else if (f === 'AH+') parsedFilters.angledHead = 'plus';
+          else if (f === 'AH-') parsedFilters.angledHead = 'minus';
+          else if (f === 'BB+') parsedFilters.boring = 'plus';
+          else if (f === 'BB-') parsedFilters.boring = 'minus';
           const boxMatch = f.match(/A(\d+)XB(\d+)XC(\d+)/);
           if (boxMatch) {
             parsedFilters.dimMode = 'box';
@@ -213,10 +213,10 @@ const MachineStatusModal: React.FC<MachineStatusModalProps> = ({ onClose }) => {
           }
           if (!/[0-9+-]/.test(f) && f.length > 2) parsedFilters.tooling = f;
         } else {
-          if (f.startsWith('DT+')) parsedFilters.drivenTools = 'plus';
-          else if (f.startsWith('DT-')) parsedFilters.drivenTools = 'minus';
-          else if (f.startsWith('TT+')) parsedFilters.tailstock = 'plus';
-          else if (f.startsWith('TT-')) parsedFilters.tailstock = 'minus';
+          if (f === 'DT+') parsedFilters.drivenTools = 'plus';
+          else if (f === 'DT-') parsedFilters.drivenTools = 'minus';
+          else if (f === 'TT+') parsedFilters.tailstock = 'plus';
+          else if (f === 'TT-') parsedFilters.tailstock = 'minus';
           else if (f.startsWith('T') && /^\d+$/.test(f.slice(1))) parsedFilters.tools = f.slice(1);
           else if (f.startsWith('GAX') && /^\d+$/.test(f.slice(3))) parsedFilters.gax = f.slice(3);
           else if (f.startsWith('GAZ') && /^\d+$/.test(f.slice(3))) parsedFilters.gaz = f.slice(3);
@@ -231,15 +231,15 @@ const MachineStatusModal: React.FC<MachineStatusModalProps> = ({ onClose }) => {
         }
       });
 
-      return currentMachines.filter(m => {
-        const mName = (m["Станок"] || "").toString().toLowerCase();
-        if (code.toLowerCase().includes(mName)) return true;
+      return currentPool.filter(m => {
+        const mName = (m["Станок"] || "").toString().toUpperCase();
+        if (code.toUpperCase().includes(mName)) return true;
         return checkMachine(m, parsedFilters);
       });
     }
 
-    return currentMachines.filter(m => checkMachine(m, { ...(isMilling ? millingFilters : turningFilters), dimMode }));
-  }, [currentMachines, isMilling, mode, millingFilters, turningFilters, searchCode, dimMode]);
+    return currentPool.filter(m => checkMachine(m, { ...(isMilling ? millingFilters : turningFilters), dimMode }));
+  }, [currentPool, isMilling, mode, millingFilters, turningFilters, searchCode, dimMode]);
 
   const renderTriState = (label: string, value: TriState, onChange: (v: TriState) => void) => (
     <div className="flex flex-col gap-1.5">
@@ -414,7 +414,7 @@ const MachineStatusModal: React.FC<MachineStatusModalProps> = ({ onClose }) => {
               </div>
             </div>
 
-            {/* Правая панель: Результаты подбора (теперь без внутреннего скролла) */}
+            {/* Правая панель: Результаты подбора */}
             <div className="lg:col-span-5 flex flex-col bg-slate-950/30 rounded-[2.5rem] border border-slate-800/50 p-8 shadow-2xl h-fit">
                <div className="flex items-center justify-between mb-8 shrink-0">
                   <div className="flex flex-col">
@@ -475,10 +475,10 @@ const MachineStatusModal: React.FC<MachineStatusModalProps> = ({ onClose }) => {
                      </div>
                      <div>
                        <p className="text-slate-400 text-sm font-black uppercase tracking-[0.3em]">
-                         {currentMachines.length === 0 ? 'Данные не загружены' : 'Конфликт параметров'}
+                         {currentPool.length === 0 ? 'Данные не загружены' : 'Конфликт параметров'}
                        </p>
                        <p className="text-[10px] text-slate-600 font-bold uppercase mt-2">
-                         {currentMachines.length === 0 ? 'Нажмите "Получить данные" выше' : 'No matching units found'}
+                         {currentPool.length === 0 ? 'Нажмите "Получить данные" выше' : 'No matching units found'}
                        </p>
                      </div>
                    </div>
