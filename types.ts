@@ -15,6 +15,8 @@ export interface Tool {
   setupTime?: string;
 }
 
+export type NCStatus = 'none' | 'yes' | 'revision';
+
 export type OpType = 
   | 'preparation' 
   | 'turning_cnc' 
@@ -27,6 +29,8 @@ export type OpType =
   | 'washing' 
   | 'ultrasonic' 
   | 'control' 
+  | 'tumbling'
+  | 'other'
   | 'final';
 
 export type BlankType = 'circle' | 'plate' | 'hex' | 'pipe';
@@ -42,6 +46,12 @@ export interface Operation {
   tooling?: Tooling[];
   specialTools?: Tool[];
   correspondenceCode?: string; // Код соответствия (маркер)
+  
+  // Новые поля для УП
+  ncStatus?: NCStatus;
+  ncTime?: string;
+  ncComment?: string;
+
   // Для заготовительной
   material?: string;
   blankType?: BlankType;
@@ -52,8 +62,13 @@ export interface Operation {
   blankWall?: string;
   pcsPerBlank?: string;
   setupPcs?: string;
+  materialConsumption?: string; // Расход на 1 шт (норма расхода)
+  
   // Для слесарной
   benchworkType?: string;
+
+  // Для универсальной операции 'other'
+  otherName?: string;
 }
 
 export interface PartCard {

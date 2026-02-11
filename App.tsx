@@ -496,7 +496,9 @@ const OperationEditor: React.FC<{
     { value: 'benchwork', label: 'Слесарная' },
     { value: 'washing', label: 'Мойка' },
     { value: 'ultrasonic', label: 'УЗ Мойка' },
+    { value: 'tumbling', label: 'Галтовка' },
     { value: 'control', label: 'Контроль ОТК' },
+    { value: 'other', label: 'Другие' },
     { value: 'final', label: 'Завершающая' }
   ];
 
@@ -740,6 +742,18 @@ const OperationEditor: React.FC<{
       </div>
 
       <div className="md:pl-20 space-y-6">
+        {op.type === 'other' && (
+           <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 shadow-inner">
+             <label className="text-[9px] font-bold text-slate-500 mb-2 uppercase tracking-widest">Название операции</label>
+             <input 
+                value={op.otherName || ''} 
+                onChange={e => onUpdate({ otherName: e.target.value })}
+                placeholder="Например: Покраска, Гравировка..."
+                className="w-full bg-slate-900 border border-slate-800 text-sm py-2 px-3 rounded-lg outline-none focus:border-orange-500"
+              />
+           </div>
+        )}
+
         {op.type === 'benchwork' && (
            <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 shadow-inner">
              <label className="text-[9px] font-bold text-slate-500 mb-2 uppercase tracking-widest">Уточнение слесарной операции</label>

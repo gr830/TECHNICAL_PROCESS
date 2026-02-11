@@ -16,7 +16,9 @@ const formatOp = (op: Operation, depth: number): string => {
     benchwork: `Слесарная${op.benchworkType ? ' (' + op.benchworkType + ')' : ''}`,
     washing: 'Мойка',
     ultrasonic: 'Ультразвуковая мойка',
+    tumbling: 'Галтовка',
     control: 'Контроль ОТК',
+    other: `${op.otherName || 'Универсальная операция'}`,
     final: 'Завершающая операция'
   };
 
