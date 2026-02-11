@@ -1,7 +1,7 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { PartCard, Operation, OpType, Tooling, Tool, Machine, BlankType, NCStatus } from './types';
-import { exportToTxt } from './services/exportService';
+import { exportToTxt, formatPart } from './services/exportService';
 import MachineStatusModal from './components/MachineStatusModal';
 
 const STORAGE_KEY = 'grosver_tech_process_v3';
@@ -19,6 +19,7 @@ const App: React.FC = () => {
   const [partCounter, setPartCounter] = useState<number>(1);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isMachineModalOpen, setIsMachineModalOpen] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   // Load state on mount
   useEffect(() => {
@@ -41,6 +42,8 @@ const App: React.FC = () => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ rootPart, partCounter }));
     }
   }, [rootPart, partCounter, isLoaded]);
+
+  const previewText = useMemo(() => formatPart(rootPart), [rootPart]);
 
   const handleClearAll = () => {
     if (window.confirm('Вы уверены, что хотите полностью очистить проект? Все данные и кэш будут удалены.')) {
@@ -163,7 +166,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-orange-500/30">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-orange-500/30 overflow-x-hidden">
       <header className="sticky top-0 z-50 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 px-4 md:px-8 py-3 flex flex-col md:flex-row justify-between items-center gap-4 shadow-xl">
         <div className="flex items-center gap-3">
           <div className="flex flex-col leading-tight">
@@ -174,16 +177,24 @@ const App: React.FC = () => {
           </div>
         </div>
         
-        <div className="flex w-full md:w-auto gap-2 items-center">
+        <div className="flex flex-wrap w-full md:w-auto gap-2 items-center justify-center">
+          <button 
+            onClick={() => setIsPreviewOpen(!isPreviewOpen)}
+            className={`px-4 py-2.5 rounded-md font-bold transition-all flex items-center gap-2 border shadow-md active:scale-95 ${isPreviewOpen ? 'bg-orange-600 border-orange-400 text-white' : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'}`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+            <span className="text-xs uppercase">{isPreviewOpen ? 'Скрыть просмотр' : 'Предпросмотр'}</span>
+          </button>
+
           <button 
             onClick={() => setIsMachineModalOpen(true)}
             className="px-4 py-2.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 rounded-md font-bold transition-all flex items-center gap-2 border border-indigo-500/30 shadow-md active:scale-95"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/></svg>
-            <span className="text-xs uppercase">Состояние станков</span>
+            <span className="text-xs uppercase hidden sm:inline">Станки</span>
           </button>
 
-          <div className="h-8 w-[1px] bg-slate-800 mx-2 hidden md:block"></div>
+          <div className="h-8 w-[1px] bg-slate-800 mx-1 hidden md:block"></div>
 
           <button 
             type="button"
@@ -191,7 +202,7 @@ const App: React.FC = () => {
             className="px-4 py-2.5 bg-slate-800 hover:bg-red-900/40 text-slate-300 hover:text-red-400 rounded-md font-bold transition-all flex items-center justify-center gap-2 active:scale-95 border border-slate-700 shadow-md"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-            <span className="text-xs uppercase hidden sm:inline">Очистить проект</span>
+            <span className="text-xs uppercase hidden lg:inline">Очистить</span>
           </button>
           
           <button 
@@ -200,26 +211,50 @@ const App: React.FC = () => {
             className="px-6 py-2.5 bg-orange-600 hover:bg-orange-500 text-white rounded-md font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-orange-900/20 active:scale-95 border border-orange-400/20"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-            <span className="hidden sm:inline">ЭКСПОРТ TXT</span>
-            <span className="sm:hidden text-xs uppercase">Экспорт</span>
+            <span className="hidden sm:inline uppercase text-xs tracking-wider">Экспорт TXT</span>
+            <span className="sm:hidden text-xs uppercase">TXT</span>
           </button>
         </div>
       </header>
 
-      <main className="flex-1 bg-grid relative pb-32">
-        <div className="max-w-5xl mx-auto px-4 py-8 md:py-12">
-          <PartEditor 
-            part={rootPart} 
-            isRoot={true} 
-            onUpdatePart={handleUpdatePart}
-            onAddOp={handleAddOperation}
-            onUpdateOp={handleUpdateOperation}
-            onDeleteOp={handleDeleteOperation}
-            onMoveOp={handleMoveOperation}
-            onAddSub={handleAddSubPart}
-            onDeleteSub={handleDeleteSubPart}
-          />
+      <main className={`flex-1 flex flex-col md:flex-row bg-grid relative ${isPreviewOpen ? 'overflow-hidden' : ''}`}>
+        <div className={`flex-1 overflow-y-auto custom-scrollbar transition-all duration-500 ${isPreviewOpen ? 'md:w-3/5' : 'w-full'}`}>
+          <div className="max-w-5xl mx-auto px-4 py-8 md:py-12">
+            <PartEditor 
+              part={rootPart} 
+              isRoot={true} 
+              onUpdatePart={handleUpdatePart}
+              onAddOp={handleAddOperation}
+              onUpdateOp={handleUpdateOperation}
+              onDeleteOp={handleDeleteOperation}
+              onMoveOp={handleMoveOperation}
+              onAddSub={handleAddSubPart}
+              onDeleteSub={handleDeleteSubPart}
+            />
+          </div>
         </div>
+
+        {isPreviewOpen && (
+          <div className="md:w-2/5 border-l border-slate-800 bg-slate-900/90 backdrop-blur-xl flex flex-col animate-in slide-in-from-right-full duration-500 z-10 shadow-[-20px_0_30px_rgba(0,0,0,0.5)]">
+            <div className="px-6 py-4 border-b border-slate-800 bg-slate-900 flex justify-between items-center sticky top-0">
+              <h3 className="text-sm font-black uppercase text-orange-500 tracking-[0.2em] flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                Предварительный просмотр
+              </h3>
+              <button onClick={() => setIsPreviewOpen(false)} className="text-slate-500 hover:text-white p-1">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto p-6 md:p-10 font-mono text-sm leading-relaxed text-slate-300 selection:bg-orange-500 selection:text-white custom-scrollbar">
+              <pre className="whitespace-pre-wrap font-mono">
+                {previewText || "Документ пуст..."}
+              </pre>
+            </div>
+            <div className="p-4 border-t border-slate-800 bg-slate-950/50 flex justify-center">
+               <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Вид документа после выгрузки в TXT</span>
+            </div>
+          </div>
+        )}
       </main>
 
       {isMachineModalOpen && (
@@ -450,7 +485,7 @@ const OperationEditor: React.FC<{
                 <input 
                   value={op.tn || ''} 
                   onChange={e => onUpdate({ tn: e.target.value })} 
-                  className="w-full bg-slate-950 border border-slate-800 py-2 px-4 rounded-lg text-sm text-orange-300 outline-none" 
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 text-sm text-orange-300 outline-none" 
                   placeholder="0'"
                 />
               </div>
@@ -459,7 +494,7 @@ const OperationEditor: React.FC<{
                 <input 
                   value={op.t_pcs || ''} 
                   onChange={e => onUpdate({ t_pcs: e.target.value })} 
-                  className="w-full bg-slate-950 border border-slate-800 py-2 px-4 rounded-lg text-sm text-emerald-400 outline-none" 
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 text-sm text-emerald-400 outline-none" 
                   placeholder="0'"
                 />
               </div>
@@ -536,7 +571,6 @@ const OperationEditor: React.FC<{
                   <label className="text-[9px] font-bold text-slate-500 mb-2 uppercase tracking-widest">Длина (L)</label>
                   <input placeholder="1000" value={op.blankLength || ''} onChange={e => onUpdate({ blankLength: e.target.value })} className="w-full bg-transparent border-b border-slate-800 text-sm py-2 outline-none focus:border-orange-500" />
                 </div>
-                {/* Расход перемещен сюда, сразу после Длины (L) */}
                 <div>
                   <label className="text-[9px] font-bold text-slate-500 mb-2 uppercase tracking-widest">Расход</label>
                   <input placeholder="0.2 прутка" value={op.materialConsumption || ''} onChange={e => onUpdate({ materialConsumption: e.target.value })} className="w-full bg-transparent border-b border-slate-800 text-sm py-2 outline-none focus:border-orange-500 font-medium text-indigo-400" />

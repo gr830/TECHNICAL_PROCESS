@@ -77,8 +77,6 @@ const formatOp = (op: Operation, depth: number): string => {
       blankSpec = parts.join('');
     }
     
-    // Новая логика формирования строки заготовки
-    // Формат: Д16Т ф55x1000 мм / Расход: 10 / 5 дет/заг (+3н)
     let firstPart = `${op.material || ''} ${blankSpec ? blankSpec + ' мм' : ''}`.trim();
     let secondPart = op.materialConsumption ? `Расход: ${op.materialConsumption}` : '';
     let thirdPart = '';
@@ -124,7 +122,7 @@ const formatOp = (op: Operation, depth: number): string => {
   return result;
 };
 
-const formatPart = (part: PartCard, depth: number = 0): string => {
+export const formatPart = (part: PartCard, depth: number = 0): string => {
   const indent = '   '.repeat(depth);
   const partHeader = `${part.name || 'БЕЗ НАЗВАНИЯ'} ${part.number || ''}`.trim();
   let result = `${indent}${partHeader}:\n\n`;
