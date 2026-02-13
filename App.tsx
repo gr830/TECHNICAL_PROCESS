@@ -4,7 +4,8 @@ import { PartCard, Operation, OpType, Tooling, Tool, Machine, BlankType, NCStatu
 import { exportToTxt, formatPart } from './services/exportService';
 import MachineStatusModal from './components/MachineStatusModal';
 
-const STORAGE_KEY = 'grosver_tech_process_v3';
+const PROJECT_STORAGE_KEY = 'grosver_tech_process_v3';
+const MACHINES_STORAGE_KEY = 'grosver_machines_cache_v3';
 
 const getInitialRoot = (): PartCard => ({
   id: 'root',
@@ -30,34 +31,58 @@ const App: React.FC = () => {
 
   // Load state on mount
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
+    // Загрузка проекта
+    const savedProject = localStorage.getItem(PROJECT_STORAGE_KEY);
+    if (savedProject) {
       try {
-        const parsed = JSON.parse(saved);
+        const parsed = JSON.parse(savedProject);
         if (parsed.rootPart) setRootPart(parsed.rootPart);
         if (parsed.partCounter !== undefined) setPartCounter(parsed.partCounter);
       } catch (e) {
-        console.error("Failed to load state", e);
+        console.error("Failed to load project state", e);
       }
     }
+
+    // Загрузка кэша станков
+    const savedMachines = localStorage.getItem(MACHINES_STORAGE_KEY);
+    if (savedMachines) {
+      try {
+        const parsed = JSON.parse(savedMachines);
+        if (parsed.milling) setMillingMachines(parsed.milling);
+        if (parsed.turning) setTurningMachines(parsed.turning);
+      } catch (e) {
+        console.error("Failed to load machines cache", e);
+      }
+    }
+
     setIsLoaded(true);
   }, []);
 
-  // Persist state to LocalStorage
+  // Persist project state
   useEffect(() => {
     if (isLoaded) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ rootPart, partCounter }));
+      localStorage.setItem(PROJECT_STORAGE_KEY, JSON.stringify({ rootPart, partCounter }));
     }
   }, [rootPart, partCounter, isLoaded]);
+
+  // Persist machines cache separately
+  useEffect(() => {
+    if (isLoaded) {
+      localStorage.setItem(MACHINES_STORAGE_KEY, JSON.stringify({ 
+        milling: millingMachines, 
+        turning: turningMachines 
+      }));
+    }
+  }, [millingMachines, turningMachines, isLoaded]);
 
   const previewText = useMemo(() => formatPart(rootPart), [rootPart]);
 
   const handleClearAll = () => {
-    if (window.confirm('Вы уверены, что хотите полностью очистить проект? Все данные будут удалены.')) {
-      localStorage.removeItem(STORAGE_KEY);
+    if (window.confirm('Вы уверены, что хотите полностью очистить текущий проект? База станков будет сохранена.')) {
+      localStorage.removeItem(PROJECT_STORAGE_KEY);
       setRootPart(getInitialRoot());
       setPartCounter(1);
-      setTimeout(() => window.location.reload(), 100);
+      // Мы не делаем reload, чтобы не терять состояние станков в памяти, если они только что были загружены
     }
   };
 
@@ -347,7 +372,7 @@ const App: React.FC = () => {
       <footer className="shrink-0 bg-slate-900/80 backdrop-blur-md border-t border-slate-800 px-8 py-2 text-[9px] text-slate-500 uppercase tracking-widest flex justify-between z-40 hidden md:flex items-center">
         <span>Grosver Tech Ecosystem</span>
         <div className="flex items-center gap-6">
-          <button onClick={handleClearAll} className="hover:text-red-400 transition-colors font-bold">Очистить кэш</button>
+          <button onClick={handleClearAll} className="hover:text-red-400 transition-colors font-bold">Очистить проект</button>
           <span className="flex items-center gap-1.5">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
             Sync Enabled
