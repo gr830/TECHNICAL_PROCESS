@@ -20,6 +20,7 @@ const App: React.FC = () => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isMachineModalOpen, setIsMachineModalOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewFontSize, setPreviewFontSize] = useState(13);
   
   // Глобальный кэш станков для синхронизации
   const [millingMachines, setMillingMachines] = useState<MillingMachineData[]>([]);
@@ -211,8 +212,8 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-orange-500/30 overflow-x-hidden">
-      <header className="sticky top-0 z-50 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 md:px-8 py-3 flex flex-col md:flex-row justify-between items-center gap-4 shadow-xl">
+    <div className="h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-orange-500/30 overflow-hidden">
+      <header className="shrink-0 z-50 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 md:px-8 py-3 flex flex-col md:flex-row justify-between items-center gap-4 shadow-xl">
         <div className="flex items-center gap-3">
           <div className="flex flex-col leading-tight">
             <span className="text-xl md:text-2xl font-black tracking-tighter text-white uppercase">
@@ -273,8 +274,8 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className={`flex-1 flex flex-col md:flex-row bg-grid relative ${isPreviewOpen ? 'overflow-hidden' : ''}`}>
-        <div className={`flex-1 overflow-y-auto custom-scrollbar transition-all duration-500 ${isPreviewOpen ? 'md:w-3/5' : 'w-full'}`}>
+      <main className="flex-1 min-h-0 flex flex-col md:flex-row bg-grid relative overflow-hidden">
+        <div className={`flex-1 h-full overflow-y-auto custom-scrollbar transition-all duration-500 ${isPreviewOpen ? 'md:w-3/5' : 'w-full'}`}>
           <div className="max-w-5xl mx-auto px-4 py-8 md:py-12">
             <PartEditor 
               part={rootPart} 
@@ -293,22 +294,39 @@ const App: React.FC = () => {
         </div>
 
         {isPreviewOpen && (
-          <div className="md:w-2/5 border-l border-slate-800 bg-slate-900/95 backdrop-blur-2xl flex flex-col animate-in slide-in-from-right-full duration-500 z-10 shadow-[-20px_0_40px_rgba(0,0,0,0.6)]">
-            <div className="px-6 py-4 border-b border-slate-800 bg-slate-900 flex justify-between items-center sticky top-0">
+          <div className="md:w-2/5 h-full border-l border-slate-800 bg-slate-900/95 backdrop-blur-2xl flex flex-col animate-in slide-in-from-right-full duration-500 z-10 shadow-[-20px_0_40px_rgba(0,0,0,0.6)]">
+            <div className="shrink-0 px-6 py-4 border-b border-slate-800 bg-slate-900 flex justify-between items-center sticky top-0">
               <h3 className="text-[11px] font-black uppercase text-orange-500 tracking-[0.3em] flex items-center gap-2">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                Предварительный просмотр документа
+                Превью
               </h3>
+              
+              <div className="flex items-center gap-4 bg-slate-950/50 px-3 py-1.5 rounded-full border border-slate-800 shadow-inner">
+                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">Шрифт</span>
+                <input 
+                  type="range" 
+                  min="8" 
+                  max="24" 
+                  value={previewFontSize} 
+                  onChange={(e) => setPreviewFontSize(parseInt(e.target.value))}
+                  className="w-20 h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-orange-600"
+                />
+                <span className="text-[10px] font-mono font-bold text-orange-500 min-w-[2ch]">{previewFontSize}</span>
+              </div>
+
               <button onClick={() => setIsPreviewOpen(false)} className="text-slate-500 hover:text-white p-2 hover:bg-slate-800 rounded-full transition-colors">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
             </div>
-            <div className="flex-1 overflow-auto p-8 md:p-12 font-mono text-xs md:text-sm leading-relaxed text-slate-300 selection:bg-orange-500/50 selection:text-white custom-scrollbar">
-              <pre className="whitespace-pre-wrap font-mono bg-slate-950/40 p-6 rounded-2xl border border-white/5 shadow-inner">
+            <div className="flex-1 overflow-y-auto p-8 md:p-12 font-mono leading-relaxed text-slate-300 selection:bg-orange-500/50 selection:text-white custom-scrollbar">
+              <pre 
+                className="whitespace-pre-wrap break-words font-mono bg-slate-950/40 p-6 rounded-2xl border border-white/5 shadow-inner min-h-full transition-all duration-200"
+                style={{ fontSize: `${previewFontSize}px` }}
+              >
                 {previewText || "Документ пуст. Начните добавлять операции."}
               </pre>
             </div>
-            <div className="p-4 border-t border-slate-800 bg-slate-950/80 flex flex-col items-center gap-1">
+            <div className="shrink-0 p-4 border-t border-slate-800 bg-slate-950/80 flex flex-col items-center gap-1">
                <span className="text-[9px] text-slate-500 font-black uppercase tracking-[0.2em]">Вид документа после экспорта в TXT</span>
                <div className="w-1/3 h-0.5 bg-orange-600/30 rounded-full"></div>
             </div>
@@ -326,7 +344,7 @@ const App: React.FC = () => {
         />
       )}
 
-      <footer className="fixed bottom-0 left-0 right-0 bg-slate-900/80 backdrop-blur-md border-t border-slate-800 px-8 py-2 text-[9px] text-slate-500 uppercase tracking-widest flex justify-between z-40 hidden md:flex items-center">
+      <footer className="shrink-0 bg-slate-900/80 backdrop-blur-md border-t border-slate-800 px-8 py-2 text-[9px] text-slate-500 uppercase tracking-widest flex justify-between z-40 hidden md:flex items-center">
         <span>Grosver Tech Ecosystem</span>
         <div className="flex items-center gap-6">
           <button onClick={handleClearAll} className="hover:text-red-400 transition-colors font-bold">Очистить кэш</button>
