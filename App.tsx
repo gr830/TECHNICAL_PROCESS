@@ -1,11 +1,24 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { PartCard, Operation, OpType, Tooling, Tool, Machine, BlankType, NCStatus, MillingMachineData, TurningMachineData } from './types';
+import { PartCard, Operation, OpType, Tooling, Tool, Machine, BlankType, NCStatus, MillingMachineData, TurningMachineData, UniversalEquipmentData } from './types';
 import { exportToTxt, formatPart } from './services/exportService';
 import MachineStatusModal from './components/MachineStatusModal';
+import ToolingSearchModal from './components/ToolingSearchModal';
 
 const PROJECT_STORAGE_KEY = 'grosver_tech_process_v3';
 const MACHINES_STORAGE_KEY = 'grosver_machines_cache_v3';
+
+const GrosverLogo = () => (
+  <svg width="51" height="51" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="100" height="100" rx="22" fill="#2D3436"/>
+    <path d="M30 40L50 30L70 40V60L50 70L30 60V40Z" stroke="white" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M30 40L50 50L70 40" stroke="white" stroke-width="2"/>
+    <path d="M50 50V70" stroke="white" stroke-width="2"/>
+    <rect x="15" y="15" width="15" height="2" fill="#FDCB6E"/>
+    <rect x="15" y="21" width="10" height="2" fill="#FDCB6E"/>
+    <rect x="15" y="27" width="20" height="2" fill="#FDCB6E"/>
+</svg>
+);
 
 const getInitialRoot = (): PartCard => ({
   id: 'root',
@@ -22,6 +35,9 @@ const App: React.FC = () => {
   const [isMachineModalOpen, setIsMachineModalOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewFontSize, setPreviewFontSize] = useState(13);
+  
+  // State for Tooling Search
+  const [activeToolingSearch, setActiveToolingSearch] = useState<{ opId: string, toolId: string } | null>(null);
   
   // Глобальный кэш станков для синхронизации
   const [millingMachines, setMillingMachines] = useState<MillingMachineData[]>([]);
@@ -82,7 +98,6 @@ const App: React.FC = () => {
       localStorage.removeItem(PROJECT_STORAGE_KEY);
       setRootPart(getInitialRoot());
       setPartCounter(1);
-      // Мы не делаем reload, чтобы не терять состояние станков в памяти, если они только что были загружены
     }
   };
 
@@ -236,10 +251,48 @@ const App: React.FC = () => {
     setRootPart(prev => ({ ...prev, subParts: removeFromList(prev.subParts) }));
   };
 
+  // Handler for when tooling is selected from the modal
+  const handleSelectTooling = (equipment: UniversalEquipmentData) => {
+    if (!activeToolingSearch) return;
+    
+    // Find the part and operation to update
+    const findAndUpdate = (parts: PartCard[]): PartCard[] => {
+      return parts.map(p => {
+        // Update local operations
+        const updatedOps = p.operations.map(op => {
+          if (op.id === activeToolingSearch.opId) {
+             const updatedTooling = op.tooling?.map(t => {
+               if (t.id === activeToolingSearch.toolId) {
+                 return { ...t, name: `${equipment["Название оснастки"]} (SAP: ${equipment["Номер в SAP"]})` };
+               }
+               return t;
+             });
+             return { ...op, tooling: updatedTooling };
+          }
+          return op;
+        });
+        
+        // Recurse
+        return { ...p, operations: updatedOps, subParts: findAndUpdate(p.subParts) };
+      });
+    };
+
+    if (rootPart) {
+      // Need a more generic way to update root vs subparts without duplicating logic
+      // Ideally reuse updatePartInTree logic but since we don't have partId here easily without traversing...
+      // Let's iterate from root
+      const newRoot = findAndUpdate([rootPart])[0];
+      setRootPart(newRoot);
+    }
+    
+    setActiveToolingSearch(null);
+  };
+
   return (
     <div className="h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-orange-500/30 overflow-hidden">
       <header className="shrink-0 z-50 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 md:px-8 py-3 flex flex-col md:flex-row justify-between items-center gap-4 shadow-xl">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
+          <GrosverLogo />
           <div className="flex flex-col leading-tight">
             <span className="text-xl md:text-2xl font-black tracking-tighter text-white uppercase">
               GROS<span className="text-orange-600 italic">VER</span>
@@ -314,6 +367,7 @@ const App: React.FC = () => {
               onMoveOp={handleMoveOperation}
               onAddSub={handleAddSubPart}
               onDeleteSub={handleDeleteSubPart}
+              onOpenToolingSearch={(opId, toolId) => setActiveToolingSearch({ opId, toolId })}
             />
           </div>
         </div>
@@ -369,6 +423,13 @@ const App: React.FC = () => {
         />
       )}
 
+      {activeToolingSearch && (
+        <ToolingSearchModal 
+          onClose={() => setActiveToolingSearch(null)}
+          onSelect={handleSelectTooling}
+        />
+      )}
+
       <footer className="shrink-0 bg-slate-900/80 backdrop-blur-md border-t border-slate-800 px-8 py-2 text-[9px] text-slate-500 uppercase tracking-widest flex justify-between z-40 hidden md:flex items-center">
         <span>Grosver Tech Ecosystem</span>
         <div className="flex items-center gap-6">
@@ -377,7 +438,7 @@ const App: React.FC = () => {
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
             Sync Enabled
           </span>
-          <span>© 2025 v3.1.0</span>
+          <span>© 2025 v3.2.0</span>
         </div>
       </footer>
     </div>
@@ -396,9 +457,10 @@ interface PartEditorProps {
   onMoveOp: (partId: string, opId: string, direction: 'up' | 'down') => void;
   onAddSub: (partId: string) => void;
   onDeleteSub: (id: string) => void;
+  onOpenToolingSearch: (opId: string, toolId: string) => void;
 }
 
-const PartEditor: React.FC<PartEditorProps> = ({ part, isRoot, millingMachines, turningMachines, onUpdatePart, onAddOp, onUpdateOp, onDeleteOp, onMoveOp, onAddSub, onDeleteSub }) => {
+const PartEditor: React.FC<PartEditorProps> = ({ part, isRoot, millingMachines, turningMachines, onUpdatePart, onAddOp, onUpdateOp, onDeleteOp, onMoveOp, onAddSub, onDeleteSub, onOpenToolingSearch }) => {
   return (
     <div className="flex flex-col gap-0 w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className={`p-4 md:p-8 rounded-xl md:rounded-3xl border transition-all mb-6 ${isRoot ? 'bg-slate-900 border-slate-700 shadow-2xl ring-1 ring-slate-800' : 'bg-slate-900/60 border-slate-800 ml-4 md:ml-12 shadow-xl backdrop-blur-md relative'}`}>
@@ -471,6 +533,7 @@ const PartEditor: React.FC<PartEditorProps> = ({ part, isRoot, millingMachines, 
                   onMove={(dir) => onMoveOp(part.id, op.id, dir)}
                   onUpdate={(u) => onUpdateOp(part.id, op.id, u)} 
                   onDelete={() => onDeleteOp(part.id, op.id)}
+                  onOpenToolingSearch={onOpenToolingSearch}
                 />
 
                 <button 
@@ -509,6 +572,7 @@ const PartEditor: React.FC<PartEditorProps> = ({ part, isRoot, millingMachines, 
             onMoveOp={onMoveOp}
             onAddSub={onAddSub}
             onDeleteSub={onDeleteSub}
+            onOpenToolingSearch={onOpenToolingSearch}
           />
         ))}
       </div>
@@ -524,8 +588,9 @@ const OperationEditor: React.FC<{
   canMoveDown: boolean, 
   onMove: (dir: 'up' | 'down') => void,
   onUpdate: (u: Partial<Operation>) => void, 
-  onDelete: () => void 
-}> = ({ op, millingMachines, turningMachines, canMoveUp, canMoveDown, onMove, onUpdate, onDelete }) => {
+  onDelete: () => void,
+  onOpenToolingSearch: (opId: string, toolId: string) => void
+}> = ({ op, millingMachines, turningMachines, canMoveUp, canMoveDown, onMove, onUpdate, onDelete, onOpenToolingSearch }) => {
   const [syncError, setSyncError] = useState(false);
 
   const opTypes: { value: OpType; label: string }[] = [
@@ -725,16 +790,16 @@ const OperationEditor: React.FC<{
     <div className="bg-slate-900 border border-slate-800 p-4 md:p-6 rounded-xl relative group hover:border-orange-500/30 transition-all shadow-inner border-l-4 border-l-slate-700 group-hover:border-l-orange-600">
       <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-all z-20">
         {canMoveUp && (
-          <button onClick={() => onMove('up')} className="p-1.5 bg-slate-800 text-slate-400 hover:text-white rounded border border-slate-700">
+          <button onClick={() => onMove('up')} className="p-1.5 bg-slate-800 text-slate-400 hover:text-white rounded border border-slate-800">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7"/></svg>
           </button>
         )}
         {canMoveDown && (
-          <button onClick={() => onMove('down')} className="p-1.5 bg-slate-800 text-slate-400 hover:text-white rounded border border-slate-700">
+          <button onClick={() => onMove('down')} className="p-1.5 bg-slate-800 text-slate-400 hover:text-white rounded border border-slate-800">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"/></svg>
           </button>
         )}
-        <button onClick={onDelete} className="p-1.5 bg-slate-800 text-slate-500 hover:text-rose-500 rounded border border-slate-700">
+        <button onClick={onDelete} className="p-1.5 bg-slate-800 text-slate-500 hover:text-rose-500 rounded border border-slate-800">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>
@@ -996,6 +1061,15 @@ const OperationEditor: React.FC<{
                             <option value="special">С</option>
                           </select>
                           <input value={t.name} onChange={e => onUpdate({ tooling: op.tooling?.map(x => x.id === t.id ? {...x, name: e.target.value} : x) })} className="flex-1 bg-transparent text-xs outline-none text-slate-200" placeholder="Название..." />
+                          {t.type === 'universal' && (
+                             <button 
+                               onClick={() => onOpenToolingSearch(op.id, t.id)}
+                               className="p-1.5 text-slate-500 hover:text-orange-400 hover:bg-slate-900 rounded-md transition-all"
+                               title="Поиск универсальной оснастки в базе"
+                             >
+                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                             </button>
+                          )}
                           <button onClick={() => onUpdate({ tooling: op.tooling?.filter(x => x.id !== t.id) })} className="text-slate-600 hover:text-rose-500 opacity-0 group-hover/item:opacity-100 transition-all absolute top-2 right-2"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
                         </div>
                         {t.type === 'special' && (

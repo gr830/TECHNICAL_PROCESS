@@ -10,7 +10,7 @@ interface MachineStatusModalProps {
   onUpdateTurning: (data: TurningMachineData[]) => void;
 }
 
-const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbzmj-UlTWSCsllj1acqd-7NQgMnElC-5GOaJGbqoNnLPC5niKxPAU3zYDLAludYqdq8/exec';
+const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbziqw5JPYunsjz4T8swu8D0yiAK8_Abj-ukjq9uqBoOLIxp-0oiwdpC5WIrq4Sygcmt/exec';
 
 type TriState = 'plus' | 'minus' | 'any';
 

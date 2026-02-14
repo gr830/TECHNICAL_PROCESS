@@ -109,6 +109,15 @@ export interface TurningMachineData {
   "Группа сложн. (G)": string;
 }
 
+export interface UniversalEquipmentData {
+  "Тип": string;
+  "Номер в SAP": string | number;
+  "Название оснастки": string;
+  "Кол-во": string | number;
+  "Артикул производителя": string;
+  "Комментарий": string;
+}
+
 export interface Message {
   role: 'user' | 'model';
   text: string;
