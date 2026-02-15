@@ -34,96 +34,34 @@ npm run deploy
 
 ## Google sheet
 
-```js
-function doGet() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName("MillingMachines");
-  const data = sheet.getDataRange().getValues();
-  
-  const headers = data[0];
-  const rows = data.slice(1);
-  
-  // Превращаем массив массивов в массив объектов (JSON)
-  const json = rows.map(row => {
-    let obj = {};
-    headers.forEach((header, i) => {
-      obj[header] = row[i];
-    });
-    return obj;
-  });
-  
-  return ContentService.createTextOutput(JSON.stringify(json))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-// [
-//   {
-//     "Станок": "Eco_S",
-//     "Ост (A)": "A3",
-//     "Инстр. (T)": "T20",
-//     "Точность (GA)": "GA10",
-//     "Круг. инт. (CI)": "CI5",
-//     "Оснастка": "Тиски 3 оси",
-//     "Renishaw (R)": "R-",
-//     "Отриц. ось (NA)": "NA-",
-//     "Шпиндель (S)": "S6",
-//     "СОЖ (C)": "C-",
-//     "Пов. гол. (AH)": "AH-",
-//     "Расточка (BB)": "BB-",
-//     "Габариты (AxBxC / DxL)": "300x200x150",
-//     "Сложность (G)": "G1"
-//   },
-//   {
-//     "Станок": "Evo_M",
-//     "Ост (A)": "A31",
-//     "Инстр. (T)": "T24",
-//     "Точность (GA)": "GA5",
-//     "Круг. инт. (CI)": "CI3",
-//     "Оснастка": "Тиски 3 оси",
-//     "Renishaw (R)": "R+",
-//     "Отриц. ось (NA)": "NA-",
-//     "Шпиндель (S)": "S10",
-//     "СОЖ (C)": "C+",
-//     "Пов. гол. (AH)": "AH-",
-//     "Расточка (BB)": "BB+",
-//     "Габариты (AxBxC / DxL)": "500x400x300",
-//     "Сложность (G)": "G3"
-//   },
-//   {
-//     "Станок": "Mitsui Seiki",
-//     "Ост (A)": "A5",
-//     "Инстр. (T)": "T120",
-//     "Точность (GA)": "GA1",
-//     "Круг. инт. (CI)": "CI1",
-//     "Оснастка": "Спец осн.",
-//     "Renishaw (R)": "R+",
-//     "Отриц. ось (NA)": "NA+",
-//     "Шпиндель (S)": "S15",
-//     "СОЖ (C)": "C+",
-//     "Пов. гол. (AH)": "AH+",
-//     "Расточка (BB)": "BB+",
-//     "Габариты (AxBxC / DxL)": "600x600x500",
-//     "Сложность (G)": "G5"
-//   }
-// ]
-// Пример доступа к первому станку в массиве
-// console.log(data[0]["Станок"]);        // "Eco_S"
-// console.log(data[0]["Ост (A)"]);       // "A3"
-// console.log(data[0]["Шпиндель (S)"]);  // "S6"
-
-// // Пример фильтрации станков только с Renishaw (R+)
-// const withRenishaw = data.filter(item => item["Renishaw (R)"] === "R+");
-```
+### Universal_equipment.gs
 
 ```js
 function doGet(e) {
-  // Получаем параметр из URL (по умолчанию "TurningMachines")
-  const sheetName = e.parameter.type || "TurningMachines"; 
-  
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheetName;
+  
+  // Проверяем входящие параметры, чтобы решить, какую логику применить
+  
+  if (e && e.parameter && e.parameter.type === "milling") {
+    // 1. ЛОГИКА ВАШЕЙ ПЕРВОЙ ФУНКЦИИ (MillingMachines)
+    sheetName = "MillingMachines";
+    
+  } else if (e && e.parameter && e.parameter.type === "equipment") {
+    // 2. НОВАЯ ЛОГИКА ДЛЯ ВАШЕЙ ТАБЛИЦЫ (Universal_equipment)
+    sheetName = "Universal_equipment";
+    
+  } else {
+    // 3. ЛОГИКА ВАШЕЙ ВТОРОЙ ФУНКЦИИ (TurningMachines по умолчанию или другой тип)
+    // Эта часть кода сохраняет работу вашей конструкции: e.parameter.type || "TurningMachines"
+    sheetName = (e && e.parameter && e.parameter.type) || "TurningMachines";
+  }
+
+  // ОБЩАЯ ЧАСТЬ ПОЛУЧЕНИЯ ДАННЫХ (которая была в обеих ваших функциях)
   const sheet = ss.getSheetByName(sheetName);
   
   if (!sheet) {
-    return ContentService.createTextOutput(JSON.stringify({error: "Лист не найден"}))
+    return ContentService.createTextOutput(JSON.stringify({error: "Лист '" + sheetName + "' не найден"}))
       .setMimeType(ContentService.MimeType.JSON);
   }
   
@@ -142,103 +80,41 @@ function doGet(e) {
   return ContentService.createTextOutput(JSON.stringify(json))
     .setMimeType(ContentService.MimeType.JSON);
 }
-// [
-//   {
-//     "Станок": "Eco_S",
-//     "Ост (A)": "A3",
-//     "Инстр. (T)": "T20",
-//     "Точность (GA)": "GA10",
-//     "Круг. инт. (CI)": "CI5",
-//     "Оснастка": "Тиски 3 оси",
-//     "Renishaw (R)": "R-",
-//     "Отриц. ось (NA)": "NA-",
-//     "Шпиндель (S)": "S6",
-//     "СОЖ (C)": "C-",
-//     "Пов. гол. (AH)": "AH-",
-//     "Расточка (BB)": "BB-",
-//     "Габариты (AxBxC / DxL)": "300x200x150",
-//     "Сложность (G)": "G1"
-//   },
-//   {
-//     "Станок": "Evo_M",
-//     "Ост (A)": "A31",
-//     "Инстр. (T)": "T24",
-//     "Точность (GA)": "GA5",
-//     "Круг. инт. (CI)": "CI3",
-//     "Оснастка": "Тиски 3 оси",
-//     "Renishaw (R)": "R+",
-//     "Отриц. ось (NA)": "NA-",
-//     "Шпиндель (S)": "S10",
-//     "СОЖ (C)": "C+",
-//     "Пов. гол. (AH)": "AH-",
-//     "Расточка (BB)": "BB+",
-//     "Габариты (AxBxC / DxL)": "500x400x300",
-//     "Сложность (G)": "G3"
-//   },
-//   {
-//     "Станок": "Mitsui Seiki",
-//     "Ост (A)": "A5",
-//     "Инстр. (T)": "T120",
-//     "Точность (GA)": "GA1",
-//     "Круг. инт. (CI)": "CI1",
-//     "Оснастка": "Спец осн.",
-//     "Renishaw (R)": "R+",
-//     "Отриц. ось (NA)": "NA+",
-//     "Шпиндель (S)": "S15",
-//     "СОЖ (C)": "C+",
-//     "Пов. гол. (AH)": "AH+",
-//     "Расточка (BB)": "BB+",
-//     "Габариты (AxBxC / DxL)": "600x600x500",
-//     "Сложность (G)": "G5"
-//   }
-// ]
-// Пример доступа к первому станку в массиве
-// console.log(data[0]["Станок"]);        // "Eco_S"
-// console.log(data[0]["Ост (A)"]);       // "A3"
-// console.log(data[0]["Шпиндель (S)"]);  // "S6"
-
-// // Пример фильтрации станков только с Renishaw (R+)
-// const withRenishaw = data.filter(item => item["Renishaw (R)"] === "R+");
 ```
 
-### Типа сама
+### MillingMachines (sheet)
 
-**Табилица фрезерка**
+Станок	Ост (A)	Инстр. (T)	Точность (GA)	Круг. инт. (CI)	Оснастка	Renishaw (R)	Отриц. ось (NA)	Шпиндель (S)	СОЖ (C)	Пов. гол. (AH)	Расточка (BB)	Габариты (AxBxC / DxL)	Сложность (G)
+Eco_S	A3	T20	GA10	CI5	Тиски 3 оси	R-	NA-	S6	C-	AH-	BB-	300x200x150	G1
+Eco_H	A3	T16	GA10	CI5	Патрон	R-	NA-	S8	C-	AH-	BB-	D100xL150	G2
+Evo_M	A31	T24	GA5	CI3	Тиски 3 оси	R+	NA-	S10	C+	AH-	BB+	500x400x300	G3
+Evo_H	A4	T30	GA5	CI2	Тиски 5 осей	R+	NA+	S12	C+	AH-	BB+	400x400x400	G3
+Chiron_1	A32	T40	GA3	CI2	Раптор	R+	NA-	S15	C+	AH+	BB-	200x150x100	G4
+Chiron_2	A41	T40	GA3	CI2	Спец осн.	R+	NA+	S15	C+	AH+	BB-	250x200x150	G4
+Grosver_V856	A3	T24	GA5	CI3	Тиски 3 оси	R-	NA-	S8	C+	AH-	BB+	800x500x500	G2
+Hedelius	A5	T60	GA2	CI1	Тиски 5 осей	R+	NA+	S18	C+	AH+	BB+	1000x600x600	G5
+DMU 40MB	A5	T30	GA3	CI2	Раптор	R+	NA+	S20	C+	AH+	BB+	400x400x400	G5
+Mitsui Seiki	A5	T120	GA1	CI1	Спец осн.	R+	NA+	S15	C+	AH+	BB+	600x600x500	G5
 
-Станок	Ост (A)	Инстр. (T)	Точность (GA)	Круг. инт. (CI)	Оснастка	Renishaw (R)	Отриц. ось (NA)	Шпиндель (S)	СОЖ (C)	Пов. гол. (AH)	Расточка (BB)	Габариты (AxBxC / DxL)	Сложность (G)	Контроль (N)	Точн. контр. (NP)
-Eco_S	A3	T20	GA10	CI5	Тиски 3 оси	R-	NA-	S6	C-	AH-	BB-	300x200x150	G1	N10x10	NP1x100
-Eco_H	A3	T16	GA10	CI5	Патрон	R-	NA-	S8	C-	AH-	BB-	D100xL150	G2	N20x15	NP2x100
-Evo_M	A31	T24	GA5	CI3	Тиски 3 оси	R+	NA-	S10	C+	AH-	BB+	500x400x300	G3	N40x20	NP4x100
-Evo_H	A4	T30	GA5	CI2	Тиски 5 осей	R+	NA+	S12	C+	AH-	BB+	400x400x400	G3	N45x25	NP5x100
-Chiron_1	A32	T40	GA3	CI2	Раптор	R+	NA-	S15	C+	AH+	BB-	200x150x100	G4	N60x20	NP8x100
-Chiron_2	A41	T40	GA3	CI2	Спец осн.	R+	NA+	S15	C+	AH+	BB-	250x200x150	G4	N65x20	NP10x100
-Grosver_V856	A3	T24	GA5	CI3	Тиски 3 оси	R-	NA-	S8	C+	AH-	BB+	800x500x500	G2	N30x15	NP3x100
-Hedelius	A5	T60	GA2	CI1	Тиски 5 осей	R+	NA+	S18	C+	AH+	BB+	1000x600x600	G5	N100x50	NP20x100
-DMU 40MB	A5	T30	GA3	CI2	Раптор	R+	NA+	S20	C+	AH+	BB+	400x400x400	G5	N80x20	NP15x100
-Mitsui Seiki	A5	T120	GA1	CI1	Спец осн.	R+	NA+	S15	C+	AH+	BB+	600x600x500	G5	N150x100	NP40x100
+### TurningMachines (sheet)
 
-**Таблица токарка**
+Станок	Приводной инстр. (DT)	Кол-во инстр. (T)	Точность по X (GAX)	Точность по Z (GAZ)	Группа оснастки	Обороты шпинделя (S)	Задняя бабка (TT)	Габариты (DxL)	Группа сложн. (G)
+Weiler	DT-	T8	GAX2	GAZ2	Патрон	S3	TT+	D200xL500	G2
+Twin 42	DT+	T24	GAX3	GAZ3	Цанга	S6	TT-	D42xL150	G4
+Hwacheon	DT+	T12	GAX5	GAZ5	Патрон	S4	TT+	D300xL600	G3
+Nakamura	DT+	T16	GAX2	GAZ2	Цанга / Патрон	S5	TT+	D250xL400	G5
+Romi 240	DT-	T8	GAX5	GAZ10	Патрон	S3	TT+	D240xL400	G1
+Romi 280	DT-	T12	GAX5	GAZ8	Патрон	S2	TT+	D280xL800	G2
 
-Станок	Приводной инстр. (DT)	Кол-во инстр. (T)	Точность по X (GAX)	Точность по Z (GAZ)	Группа оснастки	Обороты шпинделя (S)	Задняя бабка (TT)	Габариты (DxL)	Группа сложн. (G)	Общий контроль (N)	Точный контроль (NP)
-Weiler	DT-	T8	GAX2	GAZ2	Патрон	S3	TT+	D200xL500	G2	N15x20	NP3x100
-Twin 42	DT+	T24	GAX3	GAZ3	Цанга	S6	TT-	D42xL150	G4	N50x20	NP8x100
-Hwacheon	DT+	T12	GAX5	GAZ5	Патрон	S4	TT+	D300xL600	G3	N30x15	NP5x100
-Nakamura	DT+	T16	GAX2	GAZ2	Цанга / Патрон	S5	TT+	D250xL400	G5	N60x25	NP12x100
-Romi 240	DT-	T8	GAX5	GAZ10	Патрон	S3	TT+	D240xL400	G1	N10x10	NP2x100
-Romi 280	DT-	T12	GAX5	GAZ8	Патрон	S2	TT+	D280xL800	G2	N20x20	NP4x100
+### Universal_equipment (sheet)
 
+Тип	Номер в SAP	Название оснастки	Кол-во	Артикул производителя	Комментарий
+Базы/Проставки	60000000002	База Erowa L=55	2		Chiron / Evo
+Базы/Проставки	60000000003	База Erowa L=105	1		База предназначена для  станка Ecoline
+Базы/Проставки	60000000004	База Erowa L=125	1		База предназначена для  станка Ecoline
+Базы/Проставки	60000000005	База LANG L=27	8	45150	
+Базы/Проставки	60000000006	Проставка LANG L=60	5	45156	 (Chiron / Evo)
+Базы/Проставки	60000000007	Проставка LANG L=100	3	45157	 (Ecoline / Evo)
+Тиски	60000000008	Тиски LANG 46 L=102	1	48085-46 FS	
 
-
-Когда мы пишем тех процесс по фрезерке и токарке мы указываем универсальную осанстку, надо будит реализовать чтобы сбоку когда создаеь унивирсальну оснастку была кнопка поиска, после открывалось меню поиска оснастки при выборе ее добовление в поле, добовление одной за раз только в каждое поле.
-Вот уже реализованаа база оснастки код ниже
-Сама таблица
-Тип Номер в SAP Название оснастки Кол-во Артикул производителя Комментарий
-Базы/Проставки 60000000002 База Erowa L=55 2 Chiron / Evo
-Базы/Проставки 60000000003 База Erowa L=105 1 База предназначена для станка Ecoline
-Базы/Проставки 60000000004 База Erowa L=125 1 База предназначена для станка Ecoline
-Базы/Проставки 60000000005 База LANG L=27 8 45150
-Базы/Проставки 60000000006 Проставка LANG L=60 5 45156 (Chiron / Evo)
-Базы/Проставки 60000000007 Проставка LANG L=100 3 45157 (Ecoline / Evo)
-Тиски 60000000008 Тиски LANG 46 L=102 1 48085-46 FS
-Тиски 60000000009 Тиски LANG 77 L=130 1 48120-77
 
