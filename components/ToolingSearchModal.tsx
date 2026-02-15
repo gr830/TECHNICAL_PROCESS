@@ -1,36 +1,35 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { UniversalEquipmentData } from '../types';
 
 interface ToolingSearchModalProps {
   onClose: () => void;
   onSelect: (equipment: UniversalEquipmentData) => void;
+  equipment: UniversalEquipmentData[];
+  onUpdateEquipment: (data: UniversalEquipmentData[]) => void;
 }
 
 const API_URL = 'https://script.google.com/macros/s/AKfycbziqw5JPYunsjz4T8swu8D0yiAK8_Abj-ukjq9uqBoOLIxp-0oiwdpC5WIrq4Sygcmt/exec?type=equipment';
 
-const ToolingSearchModal: React.FC<ToolingSearchModalProps> = ({ onClose, onSelect }) => {
-  const [equipment, setEquipment] = useState<UniversalEquipmentData[]>([]);
+const ToolingSearchModal: React.FC<ToolingSearchModalProps> = ({ onClose, onSelect, equipment, onUpdateEquipment }) => {
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [activeType, setActiveType] = useState<string>('Все');
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const response = await fetch(API_URL);
-        if (!response.ok) throw new Error('Network error');
-        const data = await response.json();
-        setEquipment(data);
-      } catch (err) {
-        console.error("Failed to fetch equipment:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(API_URL);
+      if (!response.ok) throw new Error('Network error');
+      const data = await response.json();
+      onUpdateEquipment(data);
+    } catch (err) {
+      console.error("Failed to fetch equipment:", err);
+      alert("Ошибка загрузки базы оснастки. Проверьте соединение.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const types = useMemo(() => {
     const set = new Set(equipment.map(item => item["Тип"]).filter(Boolean));
@@ -59,7 +58,7 @@ const ToolingSearchModal: React.FC<ToolingSearchModalProps> = ({ onClose, onSele
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-300">
       <div className="bg-slate-900 border border-slate-700 w-full max-w-4xl max-h-[85vh] rounded-[2rem] flex flex-col shadow-2xl overflow-hidden ring-1 ring-white/5">
         
-        <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+        <div className="p-6 border-b border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-900/50">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-orange-600 rounded-xl flex items-center justify-center shadow-lg">
               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
@@ -69,9 +68,17 @@ const ToolingSearchModal: React.FC<ToolingSearchModalProps> = ({ onClose, onSele
               <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Grosver Universal Equipment Database</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-full text-slate-500 transition-colors">
-             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
-          </button>
+          <div className="flex items-center gap-4">
+             <button 
+               onClick={fetchData} 
+               className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black uppercase rounded-xl shadow-lg flex items-center gap-2 transition-all active:scale-95 border border-indigo-400/20"
+             >
+                {loading ? <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin"></div> : 'Получить данные'}
+             </button>
+             <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-full text-slate-500 transition-colors">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+             </button>
+          </div>
         </div>
 
         <div className="p-6 space-y-4 bg-slate-900/30">
@@ -138,12 +145,14 @@ const ToolingSearchModal: React.FC<ToolingSearchModalProps> = ({ onClose, onSele
                 </button>
               ))}
               
-              {filtered.length === 0 && (
+              {!loading && filtered.length === 0 && (
                 <div className="py-20 text-center flex flex-col items-center gap-4">
                   <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center text-slate-600">
                     <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
                   </div>
-                  <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Оснастка по вашему запросу не найдена</p>
+                  <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">
+                    {equipment.length === 0 ? 'База данных не загружена. Нажмите "Получить данные".' : 'Оснастка по вашему запросу не найдена'}
+                  </p>
                 </div>
               )}
             </div>
