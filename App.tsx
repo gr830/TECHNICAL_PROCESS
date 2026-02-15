@@ -17,7 +17,7 @@ const GrosverLogo = () => (
     <rect x="15" y="15" width="15" height="2" fill="#FDCB6E"/>
     <rect x="15" y="21" width="10" height="2" fill="#FDCB6E"/>
     <rect x="15" y="27" width="20" height="2" fill="#FDCB6E"/>
-</svg>
+  </svg>
 );
 
 const getInitialRoot = (): PartCard => ({
@@ -39,9 +39,10 @@ const App: React.FC = () => {
   // State for Tooling Search
   const [activeToolingSearch, setActiveToolingSearch] = useState<{ opId: string, toolId: string } | null>(null);
   
-  // Глобальный кэш станков для синхронизации
+  // Глобальный кэш станков и оснастки для синхронизации
   const [millingMachines, setMillingMachines] = useState<MillingMachineData[]>([]);
   const [turningMachines, setTurningMachines] = useState<TurningMachineData[]>([]);
+  const [universalEquipment, setUniversalEquipment] = useState<UniversalEquipmentData[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -59,13 +60,14 @@ const App: React.FC = () => {
       }
     }
 
-    // Загрузка кэша станков
+    // Загрузка кэша станков и оснастки
     const savedMachines = localStorage.getItem(MACHINES_STORAGE_KEY);
     if (savedMachines) {
       try {
         const parsed = JSON.parse(savedMachines);
         if (parsed.milling) setMillingMachines(parsed.milling);
         if (parsed.turning) setTurningMachines(parsed.turning);
+        if (parsed.equipment) setUniversalEquipment(parsed.equipment);
       } catch (e) {
         console.error("Failed to load machines cache", e);
       }
@@ -81,20 +83,21 @@ const App: React.FC = () => {
     }
   }, [rootPart, partCounter, isLoaded]);
 
-  // Persist machines cache separately
+  // Persist machines and equipment cache separately
   useEffect(() => {
     if (isLoaded) {
       localStorage.setItem(MACHINES_STORAGE_KEY, JSON.stringify({ 
         milling: millingMachines, 
-        turning: turningMachines 
+        turning: turningMachines,
+        equipment: universalEquipment
       }));
     }
-  }, [millingMachines, turningMachines, isLoaded]);
+  }, [millingMachines, turningMachines, universalEquipment, isLoaded]);
 
   const previewText = useMemo(() => formatPart(rootPart), [rootPart]);
 
   const handleClearAll = () => {
-    if (window.confirm('Вы уверены, что хотите полностью очистить текущий проект? База станков будет сохранена.')) {
+    if (window.confirm('Вы уверены, что хотите полностью очистить текущий проект? Базы данных станков и оснастки будут сохранены.')) {
       localStorage.removeItem(PROJECT_STORAGE_KEY);
       setRootPart(getInitialRoot());
       setPartCounter(1);
@@ -278,9 +281,6 @@ const App: React.FC = () => {
     };
 
     if (rootPart) {
-      // Need a more generic way to update root vs subparts without duplicating logic
-      // Ideally reuse updatePartInTree logic but since we don't have partId here easily without traversing...
-      // Let's iterate from root
       const newRoot = findAndUpdate([rootPart])[0];
       setRootPart(newRoot);
     }
@@ -425,6 +425,8 @@ const App: React.FC = () => {
 
       {activeToolingSearch && (
         <ToolingSearchModal 
+          equipment={universalEquipment}
+          onUpdateEquipment={setUniversalEquipment}
           onClose={() => setActiveToolingSearch(null)}
           onSelect={handleSelectTooling}
         />
